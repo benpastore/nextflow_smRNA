@@ -1,0 +1,24 @@
+#!/bin/sh
+## preprocess the small RNA data from Mello Lab
+# convert "xxx_uni.txt" to "xxx.inserts.uniq.reads"
+# 2015-01-10, tushikui@gmail
+
+#>10bfwg_x838234
+#TCCGTTGTGGTCTAGTGGTTAGGATTTATGGCT
+#>10bfwh_x561955
+#TCCCATGTGGTCTAGTGGTTAGGATTCGTGGTT
+
+# -->
+#>TCCGTTGTGGTCTAGTGGTTAGGATTTATGGCT:838234
+#TCCGTTGTGGTCTAGTGGTTAGGATTTATGGCT
+
+in_data=$1
+ou_name=$(basename $1 _17_uni.txt)
+
+cat $in_data | awk -F "\t" '{ OFS="\t";
+	if(match($1,/>/)){
+		split($1,a,"_x");
+	}else{
+		print ">"$1":"a[2]"\n"$1;
+	}
+}' > $ou_name.uniq.fa

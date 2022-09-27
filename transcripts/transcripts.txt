@@ -1,0 +1,2 @@
+Name	Biotype	Class	5'	Length	Strand	Mismatch	Multimap	Fasta
+RepBase	transposon	unknown	G;A	21-23	anti	0	1000	/fs/ess/PCON0160/ben/genomes/ce/RepBase19/celrep.RepBase19.07.shortname.fa
