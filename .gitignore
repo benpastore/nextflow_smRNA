@@ -2,9 +2,15 @@
 index/
 singularity/ 
 <<<<<<< HEAD
+<<<<<<< HEAD
 .nextflow/
 __pycache__/
 *.out
+=======
+nextflow/
+
+__pycache__/
+>>>>>>> a6b74ae53c2bd1a4fe54531a4e86f1168b959d14
 =======
 nextflow/
 
