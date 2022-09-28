@@ -1,7 +1,12 @@
 # Byte-compiled / optimized / DLL files
 index/
 singularity/ 
+nextflow/
+
 __pycache__/
+*.img
+*.sif
+*.nextflow*
 *.py[cod]
 *$py.class
 
