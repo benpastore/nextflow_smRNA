@@ -87,7 +87,7 @@ class Compare() :
         df = df.sort_values(by = 'gene_name').reset_index(drop=True)
 
         # export
-        print(f"\tWriting files... {self._outdir}/{self._x_name}-vs-{self._y_name}{self._norm_method}-DGE.tsv")
+        print(f"\tWriting files... {self._outdir}/{self._x_name}_vs_{self._y_name}{self._norm_method}.tsv")
         df.to_csv(f"{self._outdir}/{self._x_name}_vs_{self._y_name}{self._norm_method}.tsv", sep = "\t", header = True, index = False)
         
         print("\tAll done!")
@@ -101,8 +101,8 @@ def get_args() :
     ### required 
     required = parser.add_argument_group('required arguments')
     required.add_argument("-c", "--counts", type = str, required = True)
-    required.add_argument("-x", "--xlist", type=lambda s: [item for item in s.split(',')], action='store',   required = True)
-    required.add_argument("-y", "--ylist", type=lambda s: [item for item in s.split(',')], action='store',   required = True)
+    required.add_argument("-x", "--xlist", type=lambda s: [item for item in s.replace("[","").replace("]","").split(", ") ], action='store',   required = True)
+    required.add_argument("-y", "--ylist", type=lambda s: [item for item in s.replace("[","").replace("]","").split(", ") ], action='store',   required = True)
     required.add_argument("-nx", "--name_x", type = str, required = True)
     required.add_argument("-ny", "--name_y", type = str, required = True)
     required.add_argument("-o", "--outdir", type = str, required = False)

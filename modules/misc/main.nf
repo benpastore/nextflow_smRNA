@@ -61,8 +61,7 @@ process MASTER_TABLE {
         val counts
 
     output : 
-        path("*norm*tsv"), emit : tables
-        path("*count.tsv")
+        path("*count*tsv"), emit : tables
     
     script :
     mismatch = params.mismatch || params.mismatch == 0 ? "${params.mismatch}" : ''
@@ -88,8 +87,7 @@ process DGE {
     publishDir "$params.results/DGE", mode : 'copy', pattern : "*.tsv"
 
     input : 
-        val comparisons
-        val counts
+        tuple val(x), val(y), val(samples_x), val(samples_y), val(counts)
     
     output : 
         path("*.tsv")
@@ -100,6 +98,12 @@ process DGE {
 
     source activate smrnaseq
 
-    time python3 ${params.bin}/compare/compare_samples.py -c ${comparisons} -f ${counts}
+    time python3 ${params.bin}/compare/compare.py \\
+        -nx ${x} \\
+        -ny ${y} \\
+        -x "${samples_x}" \\
+        -y "${samples_y}" \\
+        -c ${counts} \\
+        -o \$PWD 
     """
 }

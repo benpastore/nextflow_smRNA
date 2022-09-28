@@ -30,6 +30,7 @@ if (params.help) {
     exit 0
 }
 
+
 params.bin = "${params.base}/../../bin"
 params.index = "${params.base}/../../index"
 
@@ -83,11 +84,10 @@ workflow {
     /*
      * Parse design file
      */
-    Channel
+    reads_ch = Channel
         .fromPath( "${params.design}")
         .splitCsv( header: ['reads', 'condition'], sep: "\t", skip: 1)
         .map{ row -> [ file(row.reads).simpleName, row.reads ] }
-        .tap{ reads_ch }
         
     /*
      * Trimming & QC
@@ -95,7 +95,7 @@ workflow {
     if (params.format == 'fastq' & params.trimming) {
         
         TRIM_GALORE( reads_ch )
-        TRIM_GALORE.out.collapsed_fa.tap{ fasta_ch }
+        fasta_ch = TRIM_GALORE.out.collapsed_fa
 
     } else if (params.format == 'fasta') {
 
@@ -113,7 +113,7 @@ workflow {
     if (params.contaminant_fa){
 
         REMOVE_CONTAMINANT( params.contaminant_fa, fasta_ch )
-        REMOVE_CONTAMINANT.out.xk_fasta.tap{ fasta_xc_ch }
+        fasta_xc_ch = REMOVE_CONTAMINANT.out.xk_fasta
 
     } else {
 
@@ -130,8 +130,8 @@ workflow {
     
     } else {
 
-        BOWTIE_INDEX( params.genome, params.junction )
-        BOWTIE_INDEX.out.tap{ bowtie_index_ch }
+        BOWTIE_INDEX( params.genome, params.junctions )
+        bowtie_index_ch = BOWTIE_INDEX.out.bowtie_index
     
     }
 
@@ -140,11 +140,10 @@ workflow {
      */
     BOWTIE_ALIGN_GENOME( bowtie_index_ch, fasta_xc_ch )
     
-    BOWTIE_ALIGN_GENOME
-        .out
-        .alignment_logs
-        .collect()
-        .tap{ bowtie_alignment_logs_ch }
+    bowtie_alignment_logs_ch = BOWTIE_ALIGN_GENOME
+                                .out
+                                .alignment_logs
+                                .collect()
 
     RBIND_ALIGNMENT_LOG( params.outprefix, bowtie_alignment_logs_ch )
 
@@ -154,10 +153,7 @@ workflow {
      */
     if (params.run_counter ) {
 
-        BOWTIE_ALIGN_GENOME
-            .out
-            .bowtie_alignment
-            .tap{ counter_input_ch }
+        counter_input_ch = BOWTIE_ALIGN_GENOME.out.bowtie_alignment
 
         COUNT_FEATURES(
             params.features,
@@ -165,76 +161,52 @@ workflow {
             counter_input_ch
             )
 
-        COUNT_FEATURES
-            .out
-            .normalization_constants
-            .tap{ norm_consts_ch }
+        norm_consts_ch = COUNT_FEATURES.out.normalization_constants
         
-        COUNT_FEATURES
-            .out
-            .counts
-            .tap{ genomic_counts_ch }
+        genomic_counts_ch = COUNT_FEATURES.out.counts
 
     } else {
 
-        BOWTIE_ALIGN_GENOME
-            .out
-            .normalization_constants
-            .tap{ norm_consts_ch }
-
-        Channel
-            .empty() 
-            .tap{ genomic_counts_ch }
+        norm_consts_ch = BOWTIE_ALIGN_GENOME.out.normalization_constants
+        genomic_counts_ch = Channel.empty()
     }
 
     /*
      * Transcripts
      */
     if (params.run_transcripts) {
-        
-        fasta_xc_ch
-            .join(norm_consts_ch)
-            .tap{ transcripts_input_ch }
+
+        transcripts_input_ch = fasta_xc_ch.join(norm_consts_ch)
 
         TRANSCRIPTS(params.transcripts, transcripts_input_ch)
 
-        TRANSCRIPTS
-            .out
-            .counts
-            .tap{ transcript_counts_ch }
+        transcript_counts_ch = TRANSCRIPTS.out.counts
         
     } else {
-        Channel
-            .empty() 
-            .tap{ transcript_counts_ch }
+
+        transcript_counts_ch = Channel.empty()
+    
     }
     
     /*
      * Combine genomic and transcripts counts
      */
-    
     if (params.run_counter || params.run_transcripts ) {
 
-        genomic_counts_ch
+        counts_ch = genomic_counts_ch
             .mix( transcript_counts_ch )
             .groupTuple()
-            .tap{ counts_ch }
 
         RBIND_COUNTS( counts_ch )
 
-        RBIND_COUNTS
-            .out
-            .tables
-            .tap{ master_table_input }
+        master_table_input = RBIND_COUNTS.out.tables
         
         MASTER_TABLE( params.outprefix, master_table_input.collect() )
 
-        MASTER_TABLE
+        master_table_ch = MASTER_TABLE
             .out
             .tables
             .flatten() 
-            .tap{ master_table_ch }
-
     }
     
     /*
@@ -242,14 +214,37 @@ workflow {
      */
     if (params.comparisons) {
 
-        DGE( params.comparisons, master_table_ch )
+        /*
+        * Parse comparisons file
+        */
+        conditions = Channel
+            .fromPath( "${params.design}")
+            .splitCsv( header: ['reads', 'condition'], sep: "\t", skip: 1)
+            .map{ row -> [ row.condition, file(row.reads).simpleName ] }
+            .groupTuple()
+    
+        comparisons = Channel
+            .fromPath( "${params.comparisons}")
+            .splitCsv( header: ['x', 'y'], sep: "\t", skip: 1)
+            .map{ row -> [ row.x, row.y ] }
+
+        comparisons_ch = comparisons
+            .join(conditions)
+            .map{ it -> it[1,0,2]}
+            .join(conditions)
+            .map{ it -> it[1,0,2,3]}
+
+        dge_input_ch = comparisons_ch
+            .combine(master_table_ch)
+
+        DGE( dge_input_ch )
 
     }
 
     /*
      * Tailor pipeline
      */
-    if (params.tailor){
+    if (params.run_tailor){
 
         /*
          * Check if tailor index is build
@@ -261,7 +256,7 @@ workflow {
         } else {
 
             TAILOR_INDEX( params.genome )
-            TAILOR_INDEX.out.tap{ tailor_index_ch }
+            tailor_index_ch = TAILOR_INDEX.out.tailor_index
         
         }
 
@@ -269,11 +264,10 @@ workflow {
          * Set tailor process input channel and preform alignment 
          */
         
-        BOWTIE_ALIGN_GENOME
+        tailor_input_ch = BOWTIE_ALIGN_GENOME
             .out
             .tailor_input
             .join(norm_consts_ch)
-            .tap{ tailor_input_ch }
 
         TAILOR_MAP(
             params.genome, 
@@ -283,11 +277,4 @@ workflow {
             tailor_input_ch
             )
     }
-
 }
-
-
-
-
-
-
