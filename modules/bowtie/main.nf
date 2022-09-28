@@ -1,7 +1,7 @@
 process BOWTIE_INDEX {
 
     label 'low'
-    publishDir "$params.bowtie_index ", mode : 'copy'
+    publishDir "$params.bowtie_index_path", mode : 'copy'
     
     input :
         val genome
@@ -10,7 +10,7 @@ process BOWTIE_INDEX {
     output :
         path("*.ebwt")
         path("*chrom_sizes")
-        val("${params.bowtie_index}*"), emit : bowtie_index
+        val("${params.bowtie_index}"), emit : bowtie_index
 
     script : 
     f = file("${genome}")

@@ -1,14 +1,14 @@
 process TAILOR_INDEX {
 
     label 'low'
-    publishDir "$params.tailor.directory", mode : 'copy'
+    publishDir "$params.tailor_index_path", mode : 'copy'
 
     input :
         val fasta
     
     output :
         path("*")
-        path("${name}*"), emit : tailor_index
+        val("${params.tailor_index}"), emit : tailor_index
 
     script : 
     f = file("${fasta}")
