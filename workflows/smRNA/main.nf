@@ -30,6 +30,18 @@ if (params.help) {
     exit 0
 }
 
+/*
+////////////////////////////////////////////////////////////////////
+Validate mandatory inputs (design, genome, junctions, results, outprefix)
+////////////////////////////////////////////////////////////////////
+*/
+
+if (params.design)    { ch_design = file(params.design, checkIfExists: true) } else { exit 1, 'Design file not specified!' }
+if (params.genome)    { ch_genome = file(params.genome, checkIfExists: true) } else { exit 1, 'Genome fasta not specified!' }
+if (params.junctions) { ch_junction = file(params.junctions, checkIfExists: true) } else { exit 1, 'Junction fasta file not specified!' }
+if (params.results)   { ; } else { exit 1, 'Results path not specified!' }
+if (params.outprefix) { ; } else { exit 1, 'Outprefix not specified!' }
+
 
 params.bin = "${params.base}/../../bin"
 params.index = "${params.base}/../../index"
@@ -110,9 +122,9 @@ workflow {
     /*
      * Remove reads mapping to contaminating RNAs
      */
-    if (params.contaminant_fa){
+    if (params.contaminant){
 
-        REMOVE_CONTAMINANT( params.contaminant_fa, fasta_ch )
+        REMOVE_CONTAMINANT( params.contaminant, fasta_ch )
         fasta_xc_ch = REMOVE_CONTAMINANT.out.xk_fasta
 
     } else {
@@ -151,7 +163,7 @@ workflow {
     /*
      * Counter
      */
-    if (params.run_counter ) {
+    if ( params.features ) {
 
         counter_input_ch = BOWTIE_ALIGN_GENOME.out.bowtie_alignment
 
@@ -174,7 +186,7 @@ workflow {
     /*
      * Transcripts
      */
-    if (params.run_transcripts) {
+    if (params.transcripts) {
 
         transcripts_input_ch = fasta_xc_ch.join(norm_consts_ch)
 
@@ -191,7 +203,7 @@ workflow {
     /*
      * Combine genomic and transcripts counts
      */
-    if (params.run_counter || params.run_transcripts ) {
+    if (params.features || params.transcripts ) {
 
         counts_ch = genomic_counts_ch
             .mix( transcript_counts_ch )
@@ -212,7 +224,7 @@ workflow {
     /*
      * Differential gene expression analysis
      */
-    if (params.comparisons) {
+    if (params.dge) {
 
         /*
         * Parse comparisons file
@@ -224,7 +236,7 @@ workflow {
             .groupTuple()
     
         comparisons = Channel
-            .fromPath( "${params.comparisons}")
+            .fromPath( "${params.dge}")
             .splitCsv( header: ['x', 'y'], sep: "\t", skip: 1)
             .map{ row -> [ row.x, row.y ] }
 
@@ -234,8 +246,7 @@ workflow {
             .join(conditions)
             .map{ it -> it[1,0,2,3]}
 
-        dge_input_ch = comparisons_ch
-            .combine(master_table_ch)
+        dge_input_ch = comparisons_ch.combine(master_table_ch)
 
         DGE( dge_input_ch )
 
@@ -244,7 +255,7 @@ workflow {
     /*
      * Tailor pipeline
      */
-    if (params.run_tailor){
+    if (params.tailor){
 
         /*
          * Check if tailor index is build
