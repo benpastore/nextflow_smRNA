@@ -255,7 +255,7 @@ workflow {
     /*
      * Tailor pipeline
      */
-    if (params.tailor){
+    if (params.tailor && params.features && params.bed){
 
         /*
          * Check if tailor index is build
