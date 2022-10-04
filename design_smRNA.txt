@@ -1,0 +1,5 @@
+Reads	Condition
+/fs/ess/PCON0160/ben/projects/disl2cde1/smRNA_fastq/N2_04252021_1.fastq.gz	N2_A
+/fs/ess/PCON0160/ben/projects/disl2cde1/smRNA_fastq/N2_04252021_2.fastq.gz	N2_A
+/fs/ess/PCON0160/ben/projects/disl2cde1/smRNA_fastq/disl2_04252021_1.fastq.gz	disl2
+/fs/ess/PCON0160/ben/projects/disl2cde1/smRNA_fastq/disl2_04252021_2.fastq.gz	disl2
