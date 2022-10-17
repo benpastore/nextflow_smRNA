@@ -2,7 +2,7 @@ process TRANSCRIPTS {
 
     errorStrategy 'retry'
     maxRetries 3
-    label 'medium' 
+    label 'high' 
 
     publishDir "$params.results/transcripts", mode : 'copy', pattern : "*.tsv"
 

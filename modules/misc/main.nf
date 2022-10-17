@@ -1,3 +1,34 @@
+
+// process design input
+process DESIGN_INPUT {
+
+    label 'local'
+
+    publishDir "$params.results/samples", mode : 'copy', pattern : "*csv"
+
+    input : 
+        val(design)
+
+    output : 
+        path("fastq.csv"), emit : fastq_ch
+        path("replicates.csv"), emit : condition_ch
+
+    script : 
+    """
+    #!/bin/bash
+
+    source activate smrnaseq
+    
+    python3 ${params.bin}/process_design_input_smRNA.py -input ${design}
+    
+    """
+
+}
+
+
+
+
+
 // Combine Alignment Logs
 process RBIND_ALIGNMENT_LOG {
 
