@@ -11,11 +11,11 @@ class create_table() :
         self._outprefix = outprefix
     
     def cbind_tables(self) :
+        
         sample = pd.read_table(self._files[0], sep = "\t")
-
-        #cols = sample.filter(regex='count')
         cols = []
         non_count_cols = []
+        
         for col in sample.columns :
             if "count" in col :
                 cols.append(col)
@@ -43,7 +43,8 @@ class create_table() :
             #names = names.sort()
             col_order = non_count_cols + names
             df_out = df_out[col_order]
-            df_out.to_csv(f"{self._outprefix}.{col}.tsv", header = True, index = False, sep = "\t")
+            df_dedup = df_out.drop_duplicates().reset_index(drop = True)
+            df_dedup.to_csv(f"{self._outprefix}.{col}.tsv", header = True, index = False, sep = "\t")
 
 def get_args() : 
 

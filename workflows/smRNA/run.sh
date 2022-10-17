@@ -41,16 +41,11 @@ echo """#!/bin/bash
 #SBATCH -c 1
 #SBATCH --account=PAS1473 --nodes=1 --ntasks-per-node=1 --time=8:00:00 --mem=2gb
 
-nextflow $SCRIPT_DIR/main.nf \\
-  --features /fs/ess/PCON0160/ben/pipelines/nextflow_smRNA/feature/features.txt \\
-  --tailor false \\
-  -with-dag dag.png \\
-  -profile cluster \\
-  $@
+nextflow $SCRIPT_DIR/main.nf $@
 
 
 """ > $SCRIPT_DIR/submit.sbatch
-sbatch $SCRIPT_DIR/submit.sbatch
+sh $SCRIPT_DIR/submit.sbatch
 
 }
   

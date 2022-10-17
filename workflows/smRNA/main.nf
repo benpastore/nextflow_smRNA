@@ -7,6 +7,10 @@
 Ben Pastore
 pastore.28@osu.edu
 ----------------------------------------------------------------------------------------
+
+To do: 
+
+make method to normalize to spike in sequences 
 */
 
 def helpMessage() {
@@ -40,7 +44,7 @@ if (params.design)    { ch_design = file(params.design, checkIfExists: true) } e
 if (params.genome)    { ch_genome = file(params.genome, checkIfExists: true) } else { exit 1, 'Genome fasta not specified!' }
 if (params.junctions) { ch_junction = file(params.junctions, checkIfExists: true) } else { exit 1, 'Junction fasta file not specified!' }
 if (params.results)   { ; } else { exit 1, 'Results path not specified!' }
-if (params.outprefix) { ; } else { exit 1, 'Outprefix not specified!' }
+if (params.outprefix) { ; } else {'Outprefix not specified! Defaulting to smRNA_analysis'; params.outprefix = 'smRNA_analysis' }
 
 
 params.bin = "${params.base}/../../bin"
@@ -85,6 +89,7 @@ include { DGE } from '../../modules/misc/main.nf'
 include { MASTER_TABLE } from '../../modules/misc/main.nf'
 include { TAILOR_INDEX } from '../../modules/tailor/main.nf'
 include { TAILOR_MAP } from '../../modules/tailor/main.nf'
+include { DESIGN_INPUT } from '../../modules/misc/main.nf'
 
 /*
 ////////////////////////////////////////////////////////////////////
@@ -93,13 +98,39 @@ Workflow
 */
 workflow {
 
+    
+    DESIGN_INPUT( params.design )
+    
+    conditions = DESIGN_INPUT
+        .out
+        .condition_ch
+        .splitCsv( header: ['sample', 'condition'], sep: ",", skip: 1)
+        .map{ row -> [ row.condition, row.sample ] }
+        .groupTuple(by: 1)
+
+    conditions.view()
+
+    comparisons = Channel
+        .fromPath( "${params.dge}")
+        .splitCsv( header: ['x', 'y'], sep: "\t", skip: 1)
+        .map{ row -> [ row.x, row.y ] }
+
+    comparisons_ch = comparisons
+        .join(conditions)
+        .map{ it -> it[1,0,2]}
+        .join(conditions)
+        .map{ it -> it[1,0,2,3]}
+    
+    comparisons_ch.view()
+
     /*
      * Parse design file
      */
-    reads_ch = Channel
-        .fromPath( "${params.design}")
-        .splitCsv( header: ['reads', 'condition'], sep: "\t", skip: 1)
-        .map{ row -> [ file(row.reads).simpleName, row.reads ] }
+    reads_ch = DESIGN_INPUT
+        .out
+        .fastq_ch
+        .splitCsv( header: ['condition', 'reads'], sep: ",", skip: 1)
+        .map{ row -> [ row.condition, row.reads ] }
         
     /*
      * Trimming & QC
@@ -208,6 +239,7 @@ workflow {
         counts_ch = genomic_counts_ch
             .mix( transcript_counts_ch )
             .groupTuple()
+            .unique()
 
         RBIND_COUNTS( counts_ch )
 
@@ -229,12 +261,13 @@ workflow {
         /*
         * Parse comparisons file
         */
-        conditions = Channel
-            .fromPath( "${params.design}")
-            .splitCsv( header: ['reads', 'condition'], sep: "\t", skip: 1)
-            .map{ row -> [ row.condition, file(row.reads).simpleName ] }
-            .groupTuple()
-    
+
+        conditions = DESIGN_INPUT
+            .out
+            .condition_ch
+            .splitCsv( header: ['sample', 'condition'], sep: ",", skip: 1)
+            .map{ row -> [ row.condition, row.sample ] }
+
         comparisons = Channel
             .fromPath( "${params.dge}")
             .splitCsv( header: ['x', 'y'], sep: "\t", skip: 1)
@@ -245,6 +278,8 @@ workflow {
             .map{ it -> it[1,0,2]}
             .join(conditions)
             .map{ it -> it[1,0,2,3]}
+
+        
 
         dge_input_ch = comparisons_ch.combine(master_table_ch)
 

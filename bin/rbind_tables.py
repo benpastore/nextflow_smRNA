@@ -21,7 +21,8 @@ class Rbind_tables() :
             else : 
                 df_out = df_out.append(df)
         
-        df_out.to_csv(f"{self._outname}", sep = "\t", index = False, header = True)
+        df_dedup = df_out.drop_duplicates().reset_index(drop = True)
+        df_dedup.to_csv(f"{self._outname}", sep = "\t", index = False, header = True)
 
 def get_args() : 
 
