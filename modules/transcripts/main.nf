@@ -1,3 +1,27 @@
+process INDEX_TRANSCRIPTS {
+
+    publishDir "$params.index/transcripts", mode : 'copy', pattern : "*bwt"
+    publishDir "$params.index/transcripts", mode : 'copy', pattern : "*sizes"
+
+
+    input : 
+        val transcripts
+
+    output : 
+        path("*")
+        val("$params.index/transcripts"), emit : transcript_index_path_ch
+    
+    script : 
+    """
+    #!/bin/bash
+
+    source activate smrnaseq
+
+    python3 ${params.bin}/index_transcripts.py --transcripts ${transcripts}
+
+    """
+}
+
 process TRANSCRIPTS {
 
     errorStrategy 'retry'
@@ -9,6 +33,7 @@ process TRANSCRIPTS {
     input : 
         val transcripts
         tuple val(sampleID), val(fasta), val(normalization)
+        val transcript_index_path
     
     output : 
         tuple val(sampleID), path("*transcripts.counts.tsv"), emit : counts
@@ -31,6 +56,8 @@ process TRANSCRIPTS {
         -o \$out \\
         -n ${normalization} \\
         -v ${mismatch} \\
-        -m ${multimap}
+        -m ${multimap} \\
+        -idx ${transcript_index_path}
+        
     """
 }

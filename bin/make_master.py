@@ -1,6 +1,7 @@
 
 import os
 import sys
+import glob
 import pandas as pd
 import argparse
 
@@ -56,6 +57,7 @@ def get_args() :
     required = parser.add_argument_group('required arguments')
     required.add_argument("-f", "--files", type = str, required = True)
     required.add_argument("-o", "--outname", type = str, required = True)
+    required.add_argument("-d", action = 'store_true', required = False)
 
     return parser.parse_args()
 
@@ -63,10 +65,13 @@ def main() :
     
     args = get_args() 
     
-    if "[" in args.files : 
-        files = args.files.replace("[","").replace("]","").split(", ")
+    if args.d : 
+        files = glob.glob(f"{args.files}")
     else : 
-        files = args.files.replace("[","").replace("]","").split(",")
+        if "[" in args.files : 
+            files = args.files.replace("[","").replace("]","").split(", ")
+        else : 
+            files = args.files.replace("[","").replace("]","").split(",")
 
     outprefix = args.outname
     

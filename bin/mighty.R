@@ -354,16 +354,7 @@ xy_dge = function(res, x, y, axmin, axmax) {
     down = res %>% filter(lab == "Down") 
     unchanged = res %>% filter(lab == "None")
     
-    up_percent = round(100*( nrow(up) / nrow(res) ))
-    down_percent = round(100*( nrow(down) / nrow(res) ))
-    
-    unchanged_percent = 100-(up_percent + down_percent)
-    
-    d = data.frame(x = c("left", "center", "right"), 
-                 y = c("middle", "bottom", "bottom"), 
-                 label = c(paste0(nrow(up), " (", up_percent,"%)"), 
-                           paste0(nrow(down), " (", down_percent,"%)"), 
-                           paste0("Pearson's Rho:",round(rho,3))))
+    print(up)
     
     cols = c("Up" = "springgreen2", 
            "Down" = "violetred1", 

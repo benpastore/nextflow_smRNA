@@ -83,6 +83,7 @@ include { BOWTIE_ALIGN_GENOME } from '../../modules/bowtie/main.nf'
 include { REMOVE_CONTAMINANT } from '../../modules/bowtie/main.nf'
 include { RBIND_ALIGNMENT_LOG } from '../../modules/misc/main.nf'
 include { COUNT_FEATURES } from '../../modules/counter/main.nf'
+include { INDEX_TRANSCRIPTS } from '../../modules/transcripts/main.nf'
 include { TRANSCRIPTS } from '../../modules/transcripts/main.nf'
 include { RBIND_COUNTS } from '../../modules/misc/main.nf'
 include { DGE } from '../../modules/misc/main.nf'
@@ -100,28 +101,6 @@ workflow {
 
     
     DESIGN_INPUT( params.design )
-    
-    conditions = DESIGN_INPUT
-        .out
-        .condition_ch
-        .splitCsv( header: ['sample', 'condition'], sep: ",", skip: 1)
-        .map{ row -> [ row.condition, row.sample ] }
-        .groupTuple(by: 1)
-
-    conditions.view()
-
-    comparisons = Channel
-        .fromPath( "${params.dge}")
-        .splitCsv( header: ['x', 'y'], sep: "\t", skip: 1)
-        .map{ row -> [ row.x, row.y ] }
-
-    comparisons_ch = comparisons
-        .join(conditions)
-        .map{ it -> it[1,0,2]}
-        .join(conditions)
-        .map{ it -> it[1,0,2,3]}
-    
-    comparisons_ch.view()
 
     /*
      * Parse design file
@@ -219,9 +198,11 @@ workflow {
      */
     if (params.transcripts) {
 
+        INDEX_TRANSCRIPTS( params.transcripts )
+
         transcripts_input_ch = fasta_xc_ch.join(norm_consts_ch)
 
-        TRANSCRIPTS(params.transcripts, transcripts_input_ch)
+        TRANSCRIPTS(params.transcripts, transcripts_input_ch, INDEX_TRANSCRIPTS.out.transcript_index_path_ch)
 
         transcript_counts_ch = TRANSCRIPTS.out.counts
         
@@ -267,6 +248,7 @@ workflow {
             .condition_ch
             .splitCsv( header: ['sample', 'condition'], sep: ",", skip: 1)
             .map{ row -> [ row.condition, row.sample ] }
+            .groupTuple()
 
         comparisons = Channel
             .fromPath( "${params.dge}")
@@ -274,13 +256,11 @@ workflow {
             .map{ row -> [ row.x, row.y ] }
 
         comparisons_ch = comparisons
-            .join(conditions)
+            .combine(conditions, by : 0)
             .map{ it -> it[1,0,2]}
-            .join(conditions)
+            .combine(conditions, by : 0)
             .map{ it -> it[1,0,2,3]}
-
         
-
         dge_input_ch = comparisons_ch.combine(master_table_ch)
 
         DGE( dge_input_ch )

@@ -1,42 +1,44 @@
+#!/usr/env/bin python3
 
 import argparse
 import os
 import pandas as pd 
 from bed_to_ntm import bed_to_ntm
 
-def index(ref) : 
+#def index(ref) : 
 
-    parent_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    index_dir = f"{parent_dir}/index/transcripts"
-    ref_name = os.path.basename(ref).replace(".fa", "")
+#    parent_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+#    index_dir = f"{parent_dir}/index/transcripts"
+#    ref_name = os.path.basename(ref).replace(".fa", ".rev.1.ebwt")
 
-    if not os.path.exists(index_dir) : 
-        os.mkdir(index_dir)
+#    if not os.path.exists(index_dir) : 
+#        os.mkdir(index_dir)
 
-    if os.path.exists(os.path.join(index_dir, ref_name)) : 
-        pass
-    else : 
-        cmd = f"bowtie-build --quiet {ref} {os.path.join(index_dir, ref_name)}" 
-        os.system(cmd)
-        
-        chrom_sizes = ref.replace(".fa", ".chrom_sizes")
-        os.system(f"samtools faidx {ref}")
-        os.system(f"cut -f1,2 {ref}.fai > {chrom_sizes}")
+#    if os.path.exists(os.path.join(index_dir, ref_name)) : 
+#        pass
+#    else : 
+#        cmd = f"bowtie-build --quiet {ref} {os.path.join(index_dir, ref_name)}" 
+#        os.system(cmd)
+#        
+#        chrom_sizes = ref.replace(".fa", ".chrom_sizes")
+#        os.system(f"samtools faidx {ref}")
+#        os.system(f"cut -f1,2 {ref}.fai > {chrom_sizes}")
     
-    return os.path.join(index_dir, ref_name)
+#    return os.path.join(index_dir, ref_name)
 
 
 def align(ref, fasta, mism, multim) : 
 
-    cmd = f"bowtie -x {ref} -f {fasta} -p 25 -v {mism} -m {multim} -a --best --strata -S > tmp.sam"
+    tmp = os.path.basename(fasta).replace(".fa", ".tmp")
+    cmd = f"bowtie -x {ref} -f {fasta} -p 25 -v {mism} -m {multim} -a --best --strata -S > {tmp}.sam"
     os.system(cmd)
 
-    cmd = f"sam2bed < tmp.sam | awk -F'\\t' -v OFS='\\t' '{{split($4,a,\":\"); split($16,b,\":\"); print $1,$2,$3,a[1],a[2],$6,b[3] }}' > tmp.bed"
+    cmd = f"sam2bed < {tmp}.sam | awk -F'\\t' -v OFS='\\t' '{{split($4,a,\":\"); split($16,b,\":\"); print $1,$2,$3,a[1],a[2],$6,b[3] }}' > {tmp}.bed"
     os.system(cmd)
 
-    bed_to_ntm("tmp.bed", "tmp.ntm")
+    bed_to_ntm(f"{tmp}.bed", f"{tmp}.ntm")
 
-    return "tmp.ntm"
+    return f"{tmp}.ntm"
 
 #########################################
 class Transcripts() :
@@ -46,7 +48,7 @@ class Transcripts() :
     useful for implementation in pipelines to align smRNA reads to miRBase & repBase annotation
     """ 
 
-    def __init__(self, fasta, transcripts, normalization, outname, mismatch, multimap) : 
+    def __init__(self, fasta, transcripts, normalization, outname, mismatch, multimap, index_path) : 
 
         self._fasta = fasta
         self._transcripts = transcripts 
@@ -61,12 +63,14 @@ class Transcripts() :
                 for line in f : 
                     info = line.strip().split("\t") 
                     self._normalization_features[info[0]] = float(info[1])
+        
+        self._index_path = index_path if index_path is not None else os.path.join( os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "index/transcripts")
     
     def process(self) : 
         
         gene_ids,  seq_ids, locus_ids, biotypes, Classes, features, counts, starts, ends, strands, seqs = [], [], [], [], [], [], [], [], [], [], []
-        with open(self._transcripts, 'r') as f : 
-            for line in f :
+        with open(self._transcripts, 'r') as q : 
+            for line in q :
                 if not line.startswith("Name") : 
                     info = line.strip().split("\t")
                     
@@ -103,7 +107,8 @@ class Transcripts() :
                     rule_selector = (nt, length, rule_orientation, multimap, mismatch)
                     
                     # index genome
-                    idx = index(reference)
+                    #idx = index(reference)
+                    idx = os.path.join(self._index_path, os.path.basename(reference).replace(".fa",""))
 
                     # align
                     ntm = align(idx, self._fasta, self._mismatch, self._multimap)
@@ -144,9 +149,9 @@ class Transcripts() :
                                 
                             else : 
                                 pass
+                    f.close()
+        q.close()
                             
-                            
-        
         results = pd.DataFrame({
             'gene_name':gene_ids,
             'seq_id':seq_ids,
@@ -232,13 +237,21 @@ def get_args() :
         help='alignment multimap'
     )
 
+    parser.add_argument(
+        "-idx", 
+        "--index_path", 
+        type = str, 
+        required=True,
+        help='path to where transcript fastas are indexed'
+    )
+
     return parser.parse_args()
 
 def main() : 
 
     args = get_args()
 
-    run = Transcripts(args.fasta, args.transcripts, args.normalization, args.outname, args.mismatch, args.multimap)
+    run = Transcripts(args.fasta, args.transcripts, args.normalization, args.outname, args.mismatch, args.multimap, args.index_path)
     run.process()
 
 if __name__ == "__main__" : 
