@@ -101,8 +101,8 @@ def get_args() :
     ### required 
     required = parser.add_argument_group('required arguments')
     required.add_argument("-c", "--counts", type = str, required = True)
-    required.add_argument("-x", "--xlist", type=lambda s: [item for item in s.replace("[","").replace("]","").split(", ") ], action='store',   required = True)
-    required.add_argument("-y", "--ylist", type=lambda s: [item for item in s.replace("[","").replace("]","").split(", ") ], action='store',   required = True)
+    required.add_argument("-x", "--xlist", type=lambda s: [item for item in s.replace("[","").replace("]","").replace(", ",",").split(",") ], action='store',   required = True)
+    required.add_argument("-y", "--ylist", type=lambda s: [item for item in s.replace("[","").replace("]","").replace(", ",",").split(",") ], action='store',   required = True)
     required.add_argument("-nx", "--name_x", type = str, required = True)
     required.add_argument("-ny", "--name_y", type = str, required = True)
     required.add_argument("-o", "--outdir", type = str, required = False)

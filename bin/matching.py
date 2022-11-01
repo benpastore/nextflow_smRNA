@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python3
 
 import pandas as pd
 
@@ -27,7 +27,6 @@ def read_features(features) :
     # 1. split feature params into tuples for searching
     for index,row in df.iteritems() :
         if not index == "rule_name" and not index == "rank" : 
-
             # if length
             if index == "length" :
                 for i,k in enumerate(df[f'{index}']) :
@@ -38,7 +37,7 @@ def read_features(features) :
                     elif "*" in k : 
                         df[f'{index}'][i] = tuple("*")
                     else : 
-                        df[f'{index}'][i] = tuple(int(k))
+                        df[f'{index}'][i] = (int(k),)
 
             # if match
             elif index == "match" : 
