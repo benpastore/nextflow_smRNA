@@ -91,6 +91,8 @@ include { MASTER_TABLE } from '../../modules/misc/main.nf'
 include { TAILOR_INDEX } from '../../modules/tailor/main.nf'
 include { TAILOR_MAP } from '../../modules/tailor/main.nf'
 include { DESIGN_INPUT } from '../../modules/misc/main.nf'
+include { ALIGN_SPIKEIN } from '../../modules/spikein/main.nf'
+include { NORMALIZE_SPIKEIN } from '../../modules/spikein/main.nf'
 
 /*
 ////////////////////////////////////////////////////////////////////
@@ -228,10 +230,36 @@ workflow {
         
         MASTER_TABLE( params.outprefix, master_table_input.collect() )
 
-        master_table_ch = MASTER_TABLE
-            .out
-            .tables
-            .flatten() 
+        /*
+        * Spike-ins
+        */
+        if (params.spikein) {
+
+            ALIGN_SPIKEIN( params.spikein,  fasta_xc_ch)
+
+            spikein_quant_ch = ALIGN_SPIKEIN.out.spikein_quant_ch
+
+            unnormalized_counts = MASTER_TABLE.out.unnormalized_master_table_ch
+
+            spikein_fasta = file("${params.spikein}")
+            spikein_name = "${spikein_fasta.simpleName}"
+
+            NORMALIZE_SPIKEIN( unnormalized_counts, spikein_quant_ch.collect(), spikein_name )
+
+            master_table_ch = MASTER_TABLE
+                .out
+                .tables
+                .concat( NORMALIZE_SPIKEIN.out.counts_normalized_spikein_ch )
+                .flatten()
+
+        } else {
+
+            master_table_ch = MASTER_TABLE
+                .out
+                .tables
+                .flatten()
+
+        }
     }
     
     /*
@@ -242,7 +270,6 @@ workflow {
         /*
         * Parse comparisons file
         */
-
         conditions = DESIGN_INPUT
             .out
             .condition_ch

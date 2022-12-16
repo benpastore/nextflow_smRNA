@@ -1,0 +1,5 @@
+Name	Biotype	Class	5'	Length	Strand	Mismatch	Multimap	Fasta
+RepBase	transposon	unknown	G;A	21-23	anti	0	1000	/fs/ess/PCON0160/ben/genomes/RepBase19.02.fasta/celrep.ref
+mex6_wt	mex6_wt	unknown	G;A	21-23	anti	0	1000	/fs/ess/PCON0160/ben/projects/disl2cde1/mex6.fa
+mex6_ss	mex6_ss	unknown	G;A	21-23	anti	0	1000	/fs/ess/PCON0160/ben/projects/disl2cde1/mex6_ss.fa
+mex6_perfect	mex6_perfect	unknown	G;A	21-23	anti	0	1000	/fs/ess/PCON0160/ben/projects/disl2cde1/mex6_perfect.fa

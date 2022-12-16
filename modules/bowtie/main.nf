@@ -30,14 +30,12 @@ process BOWTIE_INDEX {
     """
 }
 
-
 process REMOVE_CONTAMINANT {
     
     label 'low'
     
     publishDir "$params.results/trim_galore/collapsed_xc", mode : 'copy', pattern : "*.xc.fa"
     publishDir "$params.results/trim_galore/xc_aligned", mode : 'copy', pattern : "*.sam"
-
 
     input : 
         val idx 

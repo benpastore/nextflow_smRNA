@@ -25,44 +25,33 @@ def filter_tails(sequence, tail, tail_length, chrom, start, end, strand, records
 
     if len(set(lastN)) == 1 : 
         return False
-
-    if tail_length <= 2 :
+    
+    elif tail_length >= 5 and len(set(tail)) == 1 :
         return True
-    elif len(set(tail)) == 1 : 
+    
+    elif tail_length == 1 : 
         return True
-    else : 
-        # find genomic sequence, take rev comp if on minus strand
+    
+    else :
         if strand == "+" :
             ref = str(records[chrom][start : end + tail_length].seq)
+        
         else : 
             fwd = records[chrom][start : end + tail_length].seq
             seq_obj = Seq(fwd)
             ref = seq_obj.reverse_complement()
             
-        # if tail length(x) 4 >= x >= 3
-        if tail_length >= 3 and tail_length <= 4 : 
-
+        if tail_length >= 2 and tail_length <= 3 : 
+    
             edit_distance = sum(1 for a, b in zip(sequence, ref) if a != b)
-
+    
             if not edit_distance == tail_length :
                 return False
-
-        # if longer than 4
-        elif tail_length > 4 : 
-
-            error_rate = 0.25
-            allowance = round(tail_length*error_rate)
-
-            ref = str(records[chrom][start : end + tail_length].seq)
-            edit_distance = sum(1 for a, b in zip(sequence, ref) if a != b)
-            difference = tail_length - edit_distance
-            if not difference <= allowance :
-                return False
-                
-        else : 
-            return False
-
-    return True
+            
+            else : 
+                return True
+    
+    return False
 
 
 def parse_normalization_constants(file) : 
@@ -76,3 +65,27 @@ def parse_normalization_constants(file) :
             constants[key] = value
     f.close() 
     return constants
+    
+#######################
+# if longer than 4
+#elif tail_length >= 5 : 
+
+#    error_rate = 0.25
+    
+#    allowance = round(tail_length*error_rate)
+
+#    ref = str(records[chrom][start : end + tail_length].seq)
+#    
+#    edit_distance = sum(1 for a, b in zip(sequence, ref) if a != b)
+#    
+#    difference = tail_length - edit_distance
+#    
+#    if not difference <= allowance :
+#        
+#        return False
+#        
+#else : 
+#    return False
+
+    
+    

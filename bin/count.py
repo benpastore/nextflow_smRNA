@@ -4,6 +4,7 @@ import pandas as pd
 import itertools
 import argparse
 from matching import selector_match, read_features
+from utilities import timing
 
 """
     usage: count.py [-h] -i INPUT -a ANNOTATION -f FEATURES [-n NORMALIZETO] -o OUTPUT
@@ -312,6 +313,7 @@ def get_args() :
 
 ##################################################
 # main function
+@timing
 def main() : 
 
     args = get_args()

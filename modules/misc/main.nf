@@ -25,10 +25,6 @@ process DESIGN_INPUT {
 
 }
 
-
-
-
-
 // Combine Alignment Logs
 process RBIND_ALIGNMENT_LOG {
 
@@ -93,6 +89,7 @@ process MASTER_TABLE {
 
     output : 
         path("*count*tsv"), emit : tables
+        path("*.count.tsv"), emit : unnormalized_master_table_ch
     
     script :
     mismatch = params.mismatch || params.mismatch == 0 ? "${params.mismatch}" : ''
