@@ -23,10 +23,13 @@ class create_table() :
             else : 
                 non_count_cols.append(col)
                 
+        print(cols)
+                
         for col in cols : 
             names = []
             for i,f in enumerate(self._files) : 
                 sample_name = os.path.basename(f).split(".")[0]
+                print(sample_name)
                 names.append(sample_name)
                 df = pd.read_table(f, sep = "\t")
                 save = non_count_cols + [ col ] 
@@ -66,7 +69,8 @@ def main() :
     args = get_args() 
     
     if args.d : 
-        files = glob.glob(f"{args.files}")
+        files = glob.glob(f"{args.files}/*.tsv")
+        print(files)
     else : 
         if "[" in args.files : 
             files = args.files.replace("[","").replace("]","").split(", ")

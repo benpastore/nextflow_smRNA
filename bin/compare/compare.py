@@ -3,11 +3,32 @@
 import os 
 import sys
 import argparse
+import time
+import logging
 import pandas as pd
 import numpy as np
-import time
 from scipy import stats
 
+def timing(f):
+    """
+    Helper function for timing other functions
+    Parameters
+    ----------
+    f : function
+    Returns
+    -------
+    function
+        new function wrap with timer and logging 
+    """
+    def wrap(*args):
+        time1 = time.time()
+        ret = f(*args)
+        time2 = time.time()
+        logging.debug('{:s} function took {:.10f} s'.format(f.__name__, (time2-time1)))
+        return ret
+    
+    return wrap
+    
 def fold_change(x, y, pseudocount) : 
 
     if x > 0 and y > 0 : 
@@ -111,15 +132,15 @@ def get_args() :
 
     return parser.parse_args()
 
+@timing
 def main() : 
     
-    time1 = time.time()
+    logging.basicConfig(level=logging.DEBUG)
+
     args = get_args()   
     comp = Compare(args.counts, args.xlist, args.ylist, args.name_x, args.name_y, args.outdir, args.identifier, args.pseudo)
     comp.compare()
-    time2 = time.time()
-    print(f"\tRunning analysis took { round( ( (time2-time1) / 60 ), 2) } minutes!")
-
+    
 if __name__ == "__main__" : 
 
     main()

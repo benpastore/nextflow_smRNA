@@ -5,26 +5,26 @@ import os
 import pandas as pd 
 from bed_to_ntm import bed_to_ntm
 
-#def index(ref) : 
+def index(ref) : 
 
-#    parent_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-#    index_dir = f"{parent_dir}/index/transcripts"
-#    ref_name = os.path.basename(ref).replace(".fa", ".rev.1.ebwt")
+    parent_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    index_dir = f"{parent_dir}/index/transcripts"
+    ref_name = os.path.basename(ref).replace(".fa", ".rev.1.ebwt")
 
-#    if not os.path.exists(index_dir) : 
-#        os.mkdir(index_dir)
+    if not os.path.exists(index_dir) : 
+        os.mkdir(index_dir)
 
-#    if os.path.exists(os.path.join(index_dir, ref_name)) : 
-#        pass
-#    else : 
-#        cmd = f"bowtie-build --quiet {ref} {os.path.join(index_dir, ref_name)}" 
-#        os.system(cmd)
-#        
-#        chrom_sizes = ref.replace(".fa", ".chrom_sizes")
-#        os.system(f"samtools faidx {ref}")
-#        os.system(f"cut -f1,2 {ref}.fai > {chrom_sizes}")
+    if os.path.exists(os.path.join(index_dir, ref_name)) : 
+        pass
+    else : 
+        cmd = f"bowtie-build --quiet {ref} {os.path.join(index_dir, ref_name)}" 
+        os.system(cmd)
+        
+        chrom_sizes = ref.replace(".fa", ".chrom_sizes")
+        os.system(f"samtools faidx {ref}")
+        os.system(f"cut -f1,2 {ref}.fai > {chrom_sizes}")
     
-#    return os.path.join(index_dir, ref_name)
+    return os.path.join(index_dir, ref_name)
 
 
 def align(ref, fasta, mism, multim) : 
@@ -48,7 +48,7 @@ class Transcripts() :
     useful for implementation in pipelines to align smRNA reads to miRBase & repBase annotation
     """ 
 
-    def __init__(self, fasta, transcripts, normalization, outname, mismatch, multimap, index_path) : 
+    def __init__(self, fasta, transcripts, normalization, outname, mismatch, multimap, index_path, build_index) : 
 
         self._fasta = fasta
         self._transcripts = transcripts 
@@ -56,6 +56,7 @@ class Transcripts() :
         self._normalization = normalization
         self._mismatch = mismatch
         self._multimap = multimap
+        self._build_index = build_index
 
         if self._normalization is not None : 
             self._normalization_features = {}
@@ -107,10 +108,13 @@ class Transcripts() :
                     rule_selector = (nt, length, rule_orientation, multimap, mismatch)
                     
                     # index genome
-                    #idx = index(reference)
-                    idx = os.path.join(self._index_path, os.path.basename(reference).replace(".fa",""))
+                    if self._build_index : 
+                        idx = index(reference)
+                    else : 
+                        idx = os.path.join(self._index_path, os.path.basename(reference).replace(".fa",""))
 
                     # align
+
                     ntm = align(idx, self._fasta, self._mismatch, self._multimap)
 
                     # process alignment
@@ -245,13 +249,20 @@ def get_args() :
         help='path to where transcript fastas are indexed'
     )
 
+    parser.add_argument(
+        "-index", 
+        required=False,
+        action='store_true',
+        help='indicates to build index'
+    )
+
     return parser.parse_args()
 
 def main() : 
 
     args = get_args()
 
-    run = Transcripts(args.fasta, args.transcripts, args.normalization, args.outname, args.mismatch, args.multimap, args.index_path)
+    run = Transcripts(args.fasta, args.transcripts, args.normalization, args.outname, args.mismatch, args.multimap, args.index_path, args.index)
     run.process()
 
 if __name__ == "__main__" : 

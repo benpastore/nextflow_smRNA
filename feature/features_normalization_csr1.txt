@@ -1,0 +1,2 @@
+#Rule_Name	Source	Feature	Biotype	Gene	Class	5'_NT	Length	Match	Strand	5'-5' Distance	multimap	mismatch	rank
+csr1_22G	WormBase	exon	*	*	CSR1	G;A	21-23	*	anti	*	1000	0	1

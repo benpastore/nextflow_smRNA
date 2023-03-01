@@ -135,3 +135,26 @@ process DGE {
         -o \$PWD 
     """
 }
+
+// TRIMGALORE Input
+process TRIMGALORE_INPUT {
+
+    label 'local'
+
+    publishDir "$params.results/samples", mode : 'copy', pattern : "*csv"
+
+    input : 
+        val(design)
+
+    output : 
+        path("trimgalore_subworkflow_input.csv"), emit : fastq_ch
+
+    script : 
+    """
+    #!/bin/bash
+
+    source activate smrnaseq
+    
+    python3 ${params.bin}/process_trimgalore_subworkflow_input.py -input ${design} > trimgalore_subworkflow_input.csv
+    """
+}

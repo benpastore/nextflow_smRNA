@@ -1,6 +1,7 @@
 process BOWTIE_INDEX {
 
     label 'low'
+    
     publishDir "$params.bowtie_index_path", mode : 'copy'
     
     input :
@@ -73,6 +74,7 @@ process BOWTIE_ALIGN_GENOME {
     publishDir "$params.results/alignment", mode : 'copy', pattern : "*.ntm"
     publishDir "$params.results/alignment", mode : 'copy', pattern : "*.bai"
     publishDir "$params.results/alignment", mode : 'copy', pattern : "*.bam"
+    publishDir "$params.results/bowtie_unaligned", mode : 'copy', pattern : "*.unmapped.genome.junc.v0.m1.fa"
     publishDir "$params.results/logs", mode : 'copy', pattern : "*.log"
 
     input : 
@@ -80,7 +82,8 @@ process BOWTIE_ALIGN_GENOME {
         tuple val(sampleID), path(fasta)
 
     output : 
-        tuple val(sampleID), path("*.unmapped.v0.fq"), emit : tailor_input
+        tuple val(sampleID), path("*.unmapped.genome.junc.v0.m1.fq"), emit : tailor_input
+        tuple val(sampleID), path("*.unmapped.genome.junc.v0.m1.fa"), emit : unmapped_fa
         tuple val(sampleID), path("*.ntm"), emit : bowtie_alignment
         tuple val(sampleID), path("*.depth"), emit : normalization_constants
         path("*aligned*.log"), emit : alignment_logs
@@ -141,6 +144,7 @@ process BOWTIE_ALIGN_GENOME {
         -f ${fasta} \\
         -p ${task.cpus} \\
         -v 0 \\
+        -m 1 \\
         -a \\
         --un unmapped.genome.v0.tmp \\
         --best \\
@@ -152,13 +156,14 @@ process BOWTIE_ALIGN_GENOME {
         -f unmapped.genome.v0.tmp \\
         -p ${task.cpus} \\
         -v 0 \\
+        -m 1 \\
         -a \\
-        --un unmapped.genome.junc.v0.tmp \\
+        --un \$name.unmapped.genome.junc.v0.m1.fa \\
         --best \\
         --strata \\
         -S > mapped.junc.v0.sam
     
-    python3 ${params.bin}/uniq_fasta_to_uniq_fastq.py unmapped.genome.junc.v0.tmp > \$name.unmapped.v0.fq
+    python3 ${params.bin}/uniq_fasta_to_uniq_fastq.py \$name.unmapped.genome.junc.v0.m1.fa > \$name.unmapped.genome.junc.v0.m1.fq
 
     ########################################################################
     # Process alignment
