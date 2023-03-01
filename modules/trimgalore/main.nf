@@ -26,7 +26,7 @@ process TRIM_GALORE {
     fq=${fastq}
     t_fq=${sampleID}_trimmed.fq.gz
     fa=${sampleID}.trimmed.uniq.fa
-    
+
     trim_galore -j ${task.cpus} ${adapter} -q 30 -e 0.1 --gzip ${min_length} ${max_length} --fastqc --basename ${sampleID} \$fq
 
     sh ${params.bin}/fastq_to_uniq_fasta.sh \$t_fq \$fa

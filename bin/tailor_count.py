@@ -23,23 +23,28 @@ from tailor_match import filter_tails, parse_normalization_constants
 """
 
 #### Functions
+'''
 def intersect_to_best(input, output) : 
     
     """
     Iterate through intersect for each sequence find best overlap, only keep line if overlap == best.
     """
     
+    output_dict = {}
     best = {}
     with open(input, 'r') as f : 
         for line in f : 
             info = line.strip().split("\t")
+
             seq = info[7]
             overlap = int(info[19])
             
             if seq in best.keys() : 
-                if overlap < best[seq] : 
+                if overlap >= best[seq] :
                     best[seq] = overlap
+                    output_dict[seq] += line
             else : 
+                output_dict[seq] = line
                 best[seq] = overlap
     f.close() 
     
@@ -56,6 +61,7 @@ def intersect_to_best(input, output) :
                 pass
     f.close() 
     out.close()
+'''
 
 ##################################################
 # Class of features
@@ -176,7 +182,7 @@ class Features() :
                                     [ 
                                     info[11], 
                                     int(info[12]),
-                                    int(info[12])+len(info[tail]), 
+                                    int(info[13]), #+len(info[tail]) 
                                     info[14], 
                                     float(info[15]), 
                                     info[16], 
@@ -208,12 +214,13 @@ class Features() :
         # normalize to number features mapped
         bed['number_feature_mapped'] = bed.groupby( ['chrom', 'start', 'end', 'seq'] )['seq'].transform('size')
         bed['count_nfm'] = bed.apply(lambda row : row['count'] / row['number_feature_mapped'], axis = 1)
-
+        bed['sequence'] = bed.apply(lambda row: (f'{row["seq"]}:{row["tail"]}'), axis = 1)
+        
         # select desired columns
-        bed_final = bed[['chrom', 'start', 'end', 'seq', 'count_nfm', 'strand', 'orientation', 'gene', 'biotype', 'class', 'tail', 'feature', 'rank', 'overlap']]
+        bed_final = bed[['chrom', 'start', 'end', 'sequence', 'count_nfm', 'strand', 'orientation', 'gene', 'biotype', 'class', 'feature', 'rank', 'overlap']]
 
         # change name of count_nfm to count
-        bed_final.columns = ['chrom', 'start', 'end', 'seq', 'count', 'strand', 'orientation', 'gene', 'biotype', 'class', 'tail', 'feature', 'rank', 'overlap']
+        bed_final.columns = ['chrom', 'start', 'end', 'seq', 'count', 'strand', 'orientation', 'gene', 'biotype', 'class', 'feature', 'rank', 'overlap']
 
         # split gene into gene_name, seq_id, locus_id
         bed_final[['gene_name', 'seq_id', 'locus_id']] = pd.DataFrame(bed_final['gene'].tolist(), index=bed_final.index)
@@ -240,10 +247,10 @@ class Features() :
 
             for k,v in self._normalization_factors.items() : 
                 if not v == 0 : 
-                    self._counts[f'count_{k}_norm'] = self._counts.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+                    #self._counts[f'count_{k}_norm'] = self._counts.apply(lambda row : 1e6*(row['count']/v), axis = 1)
                     self._bed_final[f'count_{k}_norm'] = self._bed_final.apply(lambda row : 1e6*(row['count']/v), axis = 1)
     
-        self._counts.to_csv(f"{self._outprefix}.counts.tsv", sep = "\t", index = False, header = True)
+        #self._counts.to_csv(f"{self._outprefix}.counts.tsv", sep = "\t", index = False, header = True)
         self._bed_final.to_csv(f"{self._outprefix}.bed.tsv", sep = "\t", index = False, header = True)
 
 ##################################################
@@ -307,7 +314,7 @@ def main() :
     counter.intersect()
     counter.features()
     counter.select_matching()
-    counter.combine_counts()
+    #counter.combine_counts()
     counter.normalize_counts()
 
 ##################################################

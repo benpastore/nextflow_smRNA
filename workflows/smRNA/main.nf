@@ -36,39 +36,19 @@ if (params.help) {
 
 /*
 ////////////////////////////////////////////////////////////////////
-Validate mandatory inputs (design, genome, junctions, results, outprefix)
+set path to bin and index
 ////////////////////////////////////////////////////////////////////
 */
-
-if (params.design)    { ch_design = file(params.design, checkIfExists: true) } else { exit 1, 'Design file not specified!' }
-if (params.genome)    { ch_genome = file(params.genome, checkIfExists: true) } else { exit 1, 'Genome fasta not specified!' }
-if (params.junctions) { ch_junction = file(params.junctions, checkIfExists: true) } else { exit 1, 'Junction fasta file not specified!' }
-if (params.results)   { ; } else { exit 1, 'Results path not specified!' }
-if (params.outprefix) { ; } else {'Outprefix not specified! Defaulting to smRNA_analysis'; params.outprefix = 'smRNA_analysis' }
-
-
 params.bin = "${params.base}/../../bin"
 params.index = "${params.base}/../../index"
 
-/*
-////////////////////////////////////////////////////////////////////
-Check bowtie index is made
-////////////////////////////////////////////////////////////////////
-*/
-genome_fasta = file("${params.genome}")
-genome_name = "${genome_fasta.baseName}"
-params.bowtie_index_path = "${params.index}/bowtie/${genome_name}"
-params.bowtie_index = "${params.bowtie_index_path}/${genome_name}"
-bowtie_exists = file(params.bowtie_index_path).exists()
 
 /*
 ////////////////////////////////////////////////////////////////////
-Check tailor index is made
+validate results
 ////////////////////////////////////////////////////////////////////
 */
-params.tailor_index_path = "${params.index}/tailor/${genome_name}"
-params.tailor_index = "${params.tailor_index_path}/${genome_name}"
-tailor_exists = file(params.tailor_index_path).exists()
+if (params.results)   { ; } else { exit 1, 'Results path not specified!' }
 
 /*
 ////////////////////////////////////////////////////////////////////
@@ -91,8 +71,46 @@ include { MASTER_TABLE } from '../../modules/misc/main.nf'
 include { TAILOR_INDEX } from '../../modules/tailor/main.nf'
 include { TAILOR_MAP } from '../../modules/tailor/main.nf'
 include { DESIGN_INPUT } from '../../modules/misc/main.nf'
+include { TRIMGALORE_INPUT } from '../../modules/misc/main.nf'
 include { ALIGN_SPIKEIN } from '../../modules/spikein/main.nf'
 include { NORMALIZE_SPIKEIN } from '../../modules/spikein/main.nf'
+include { MERGE_BW } from '../../modules/deeptools/main.nf'
+
+/*
+////////////////////////////////////////////////////////////////////
+Subworkflow
+////////////////////////////////////////////////////////////////////
+*/
+workflow TRIMGALORE {
+
+    if (params.fastq)   { ; } else { exit 1, 'Comma separaterd list of fastq files not specified. Use --fastq fq1,fq2 to specify this paramter!' }
+
+    /*
+     * Parse bam files into channel taking bam file path and simple name
+     */
+    TRIMGALORE_INPUT( params.fastq )
+
+    reads_ch = TRIMGALORE_INPUT
+        .out
+        .fastq_ch
+        .splitCsv( header: ['condition', 'reads'], sep: ",", skip: 1)
+        .map{ row -> [ row.condition, row.reads ] }
+    
+    reads_ch.view()
+
+    TRIM_GALORE( reads_ch )
+    
+    fasta_ch = TRIM_GALORE.out.collapsed_fa
+    
+    if (params.contaminant){
+
+        REMOVE_CONTAMINANT( params.contaminant, fasta_ch )
+        fasta_xc_ch = REMOVE_CONTAMINANT.out.xk_fasta
+
+    }
+
+}
+
 
 /*
 ////////////////////////////////////////////////////////////////////
@@ -101,29 +119,64 @@ Workflow
 */
 workflow {
 
-    
-    DESIGN_INPUT( params.design )
+    /*
+    ////////////////////////////////////////////////////////////////////
+    Validate mandatory inputs (design, genome, junctions, results, outprefix)
+    ////////////////////////////////////////////////////////////////////
+    */
+    if (params.design)    { ch_design = file(params.design, checkIfExists: true) } else { exit 1, 'Design file not specified!' }
+    if (params.genome)    { ch_genome = file(params.genome, checkIfExists: true) } else { exit 1, 'Genome fasta not specified!' }
+    if (params.junctions) { ch_junction = file(params.junctions, checkIfExists: true) } else { exit 1, 'Junction fasta file not specified!' }
+    if (params.outprefix) { ; } else {'Outprefix not specified! Defaulting to smRNA_analysis'; params.outprefix = 'smRNA_analysis' }
+
+    /*
+    ////////////////////////////////////////////////////////////////////
+    Check bowtie index is made
+    ////////////////////////////////////////////////////////////////////
+    */
+    genome_fasta = file("${params.genome}")
+    genome_name = "${genome_fasta.baseName}"
+    params.bowtie_index_path = "${params.index}/bowtie/${genome_name}"
+    params.bowtie_index = "${params.bowtie_index_path}/${genome_name}"
+    bowtie_exists = file(params.bowtie_index_path).exists()
+
+    /*
+    ////////////////////////////////////////////////////////////////////
+    Check tailor index is made
+    ////////////////////////////////////////////////////////////////////
+    */
+    params.tailor_index_path = "${params.index}/tailor/${genome_name}"
+    params.tailor_index = "${params.tailor_index_path}/${genome_name}"
+    tailor_exists = file(params.tailor_index_path).exists()
 
     /*
      * Parse design file
      */
+    DESIGN_INPUT( params.design )
+
     reads_ch = DESIGN_INPUT
         .out
         .fastq_ch
         .splitCsv( header: ['condition', 'reads'], sep: ",", skip: 1)
         .map{ row -> [ row.condition, row.reads ] }
+
+    replicates_ch = DESIGN_INPUT
+        .out
+        .condition_ch
+        .splitCsv(header:true, sep:',')
+        .map { row -> [ row.simple_name, row.group ] }
         
     /*
      * Trimming & QC
      */
-    if (params.format == 'fastq' & params.trimming) {
+    if (params.format == 'fasta') {
         
+        fasta_ch = reads_ch
+
+    } else if (params.format == 'fastq' & params.trimming) {
+
         TRIM_GALORE( reads_ch )
         fasta_ch = TRIM_GALORE.out.collapsed_fa
-
-    } else if (params.format == 'fasta') {
-
-        fasta_ch = reads_ch
 
     } else {
 

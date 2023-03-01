@@ -28,7 +28,10 @@ process TAILOR_MAP {
     label 'low'
 
     publishDir "$params.results/tailor/alignment", mode : 'copy', pattern : "*tailor.bed"
-    publishDir "$params.results/tailor/counts", mode : 'copy', pattern : "*.tsv"
+    publishDir "$params.results/tailor/alignment", mode : 'copy', pattern : "*.bam"
+    publishDir "$params.results/tailor/alignment", mode : 'copy', pattern : "*.bai"
+    publishDir "$params.results/tailor/alignment", mode : 'copy', pattern : "*.sam"
+    publishDir "$params.results/tailor/counts", mode : 'copy', pattern : "*bed.tsv"
 
     input :
         val genome
@@ -60,6 +63,8 @@ process TAILOR_MAP {
     # MUST map sense and be unique mapper
 
     name=\$(basename $fastq .fq)
+    sam=\$name.sam
+    bam=\$name.bam
     bed=\$name.aligned.v0.m1.tailor.bed
     counts=\$name.aligned.v0.m1.tailor
     
@@ -68,7 +73,7 @@ process TAILOR_MAP {
         -p ${talor_index} \\
         -n ${task.cpus} \\
         2> tailor.log | \\
-    tee aligned.sam | \\
+    tee \$sam | \\
     ${params.bin}/tailor_sam_to_bed | \\
     awk -v num=\$nTag -F'\\t' -v OFS="\\t" '{
         if (\$8!="*")
@@ -79,6 +84,12 @@ process TAILOR_MAP {
 
         }
     }' > \$bed
+    
+    # sort sam file -> bam file
+    samtools sort -m 1G -@ ${task.cpus} -o \$bam \$sam
+
+    # index bam file -> bam.bai 
+    samtools index -@ ${task.cpus} \$bam
 
     # Count reads
     python3 ${params.bin}/tailor_count.py \\
