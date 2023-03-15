@@ -10,7 +10,7 @@ process BOWTIE_INDEX {
 
     output :
         path("*.ebwt")
-        path("*chrom_sizes")
+        path("*chrom_sizes"), emit : bowtie_chrom_sizes
         val("${params.bowtie_index}"), emit : bowtie_index
 
     script : 
@@ -71,24 +71,29 @@ process BOWTIE_ALIGN_GENOME {
 
     label 'low'
 
-    publishDir "$params.results/alignment", mode : 'copy', pattern : "*.ntm"
-    publishDir "$params.results/alignment", mode : 'copy', pattern : "*.bai"
-    publishDir "$params.results/alignment", mode : 'copy', pattern : "*.bam"
+    publishDir "$params.results/alignment/ntm", mode : 'copy', pattern : "*.ntm"
+    publishDir "$params.results/alignment/rpm", mode : 'copy', pattern : "*.rpm"
+    publishDir "$params.results/alignment/bw", mode : 'copy', pattern : "*.bw"
+    publishDir "$params.results/alignment/bam", mode : 'copy', pattern : "*.bai"
+    publishDir "$params.results/alignment/bam", mode : 'copy', pattern : "*.bam"
     publishDir "$params.results/bowtie_unaligned", mode : 'copy', pattern : "*.unmapped.genome.junc.v0.m1.fa"
     publishDir "$params.results/logs", mode : 'copy', pattern : "*.log"
 
     input : 
         val idx
         tuple val(sampleID), path(fasta)
+        val chrom_sizes
 
     output : 
         tuple val(sampleID), path("*.unmapped.genome.junc.v0.m1.fq"), emit : tailor_input
         tuple val(sampleID), path("*.unmapped.genome.junc.v0.m1.fa"), emit : unmapped_fa
         tuple val(sampleID), path("*.ntm"), emit : bowtie_alignment
+        path("*.rpm"), emit : bowtie_rpm
         tuple val(sampleID), path("*.depth"), emit : normalization_constants
         path("*aligned*.log"), emit : alignment_logs
         path("*.sorted.bam")
         path("*.sorted.bam.bai")
+        path("*.bw")
 
     script : 
     mismatch_command = params.mismatch || params.mismatch == 0 ? "-v ${params.mismatch}" : ''
@@ -106,6 +111,8 @@ process BOWTIE_ALIGN_GENOME {
     bai=\$id.genome.sorted.bam.bai
     bed=\$id.bed
     ntm=\$id.ntm
+    rpm=\$id.rpm
+    bw=\$id.bw
     log=\$id.log
     dep=\$id.depth
 
@@ -192,6 +199,20 @@ process BOWTIE_ALIGN_GENOME {
     depth=\$(python3 ${params.bin}/add_columns.py \$ntm 4)
     echo \$depth > depth
 
+    # normalize ntm file to rpm, remove multimappers and non-perfect alignments
+    echo -e "\tchrom\tstart\tend\tseq\tcount_rpm\tstrand" > header 
+
+    cat \$ntm | awk '(\$7==1 && \$8==0)' | awk -F'\\t' -v OFS='\\t' -v nTag=\$depth '{print \$1,\$2,\$3,\$4,1000000*(\$5/nTag),\$6}' > rpm.tmp
+    
+    cat header rpm.tmp > \$rpm
+
+    # make bw file of all alignments
+    cat rpm.tmp | awk -F'\\t' '{OFS="\\t"; if (\$2>=\$3) print \$1,\$2,\$3+1,\$4,\$5; else print \$1,\$2,\$3,\$4,\$5 }' | sort-bed - > tmp.sorted
+    
+    bedops --partition tmp.sorted | bedmap --echo --sum --delim '\\t' - tmp.sorted | awk -F '\\t' '{OFS="\\t"; print \$1,\$2,\$3,1*\$4}' > tmp.bg
+    
+    ${params.bin}/bedGraphToBigWig tmp.bg ${chrom_sizes} \$bw
+
     # find total reads sequenced
     total_reads=\$(cat ${fasta} | grep "^>" | sed -e 's/.*://g' | ${params.bin}/addCols stdin)
     
@@ -206,5 +227,34 @@ process BOWTIE_ALIGN_GENOME {
     echo -e 'total\t'\$depth > \$dep
 
     # fin
+    """
+}
+
+// Make Counts Master Table
+process BOWTIE_ALIGNMENT_MASTER_TABLE {
+
+    label 'medium'
+
+    publishDir "$params.results/alignment/alignment_master_table", mode : 'copy', pattern : "*.tsv"
+
+    input :
+        val project_name
+        val counts
+
+    output : 
+        path("*count*tsv"), emit : tables
+        path("*.count.tsv"), emit : unnormalized_master_table_ch
+    
+    script :
+    mismatch = params.mismatch || params.mismatch == 0 ? "${params.mismatch}" : ''
+    multimap = params.multimap ? "${params.multimap}" : ''
+    """
+    #!/bin/bash
+
+    source activate smrnaseq
+
+    counts=${project_name}.bowtie.aligned.v${mismatch}.m${multimap}
+
+    time python3 ${params.bin}/make_master.py -f "${counts}" -o \$counts
     """
 }

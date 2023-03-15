@@ -2,7 +2,7 @@ process TRIM_GALORE {
 
     label 'low'
 
-    publishDir "$params.results/trim_galore/fastq", mode : 'copy', pattern : "*_trimmed.fq.gz"
+    //publishDir "$params.results/trim_galore/fastq", mode : 'copy', pattern : "*_trimmed.fq.gz"
     publishDir "$params.results/trim_galore/logs", mode : 'copy', pattern : "*_trimming_report.txt"
     publishDir "$params.results/trim_galore/collapsed", mode : 'copy', pattern : "*.trimmed.uniq.fa"
 
