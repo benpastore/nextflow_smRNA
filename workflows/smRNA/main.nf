@@ -60,6 +60,7 @@ nextflow.enable.dsl=2
 include { TRIM_GALORE } from '../../modules/trimgalore/main.nf'
 include { BOWTIE_INDEX } from '../../modules/bowtie/main.nf'
 include { BOWTIE_ALIGN_GENOME } from '../../modules/bowtie/main.nf'
+//include { BOWTIE_ALIGNMENT_MASTER_TABLE } from '../../modules/bowtie/main.nf'
 include { REMOVE_CONTAMINANT } from '../../modules/bowtie/main.nf'
 include { RBIND_ALIGNMENT_LOG } from '../../modules/misc/main.nf'
 include { COUNT_FEATURES } from '../../modules/counter/main.nf'
@@ -111,7 +112,6 @@ workflow TRIMGALORE {
 
 }
 
-
 /*
 ////////////////////////////////////////////////////////////////////
 Workflow
@@ -138,6 +138,7 @@ workflow {
     genome_name = "${genome_fasta.baseName}"
     params.bowtie_index_path = "${params.index}/bowtie/${genome_name}"
     params.bowtie_index = "${params.bowtie_index_path}/${genome_name}"
+    params.bowtie_chrom_sizes = "${params.bowtie_index_path}/${genome_name}_chrom_sizes"
     bowtie_exists = file(params.bowtie_index_path).exists()
 
     /*
@@ -204,18 +205,19 @@ workflow {
     if ( bowtie_exists ){
     
         bowtie_index_ch = params.bowtie_index
+        bowtie_chrom_sizes = params.bowtie_chrom_sizes
     
     } else {
 
         BOWTIE_INDEX( params.genome, params.junctions )
         bowtie_index_ch = BOWTIE_INDEX.out.bowtie_index
-    
+        bowtie_chrom_sizes = BOWTIE_INDEX.out.bowtie_chrom_sizes
     }
 
     /*
      * Bowtie align
      */
-    BOWTIE_ALIGN_GENOME( bowtie_index_ch, fasta_xc_ch )
+    BOWTIE_ALIGN_GENOME( bowtie_index_ch, fasta_xc_ch, bowtie_chrom_sizes )
     
     bowtie_alignment_logs_ch = BOWTIE_ALIGN_GENOME
                                 .out
@@ -223,6 +225,13 @@ workflow {
                                 .collect()
 
     RBIND_ALIGNMENT_LOG( params.outprefix, bowtie_alignment_logs_ch )
+
+
+    /* 
+     * make table with chrom, start, end, seq, strand, sample1_rpm, sample2_rpm......
+     */
+    //BOWTIE_ALIGNMENT_MASTER_TABLE( params.outprefix, BOWTIE_ALIGN_GENOME.out.bowtie_rpm.collect() )
+    
 
 
     /*

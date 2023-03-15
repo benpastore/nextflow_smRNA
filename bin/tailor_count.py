@@ -177,7 +177,7 @@ class Features() :
 
                 for x,y in itertools.product( [selector], self._feature_selectors ) :
                     if selector_match(x,y[0]) :
-                        if filter_tails(info[sequence], info[tail], len(info[tail]), info[11], int(info[12]), int(info[13]), info[strand], self._records, 4) :
+                        if filter_tails(info[sequence], info[tail], info[11], int(info[12]), int(info[13]), info[strand], self._records, 4) :
                             hits.append(
                                     [ 
                                     info[11], 

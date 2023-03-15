@@ -109,7 +109,7 @@ class Compare() :
 
         # export
         print(f"\tWriting files... {self._outdir}/{self._x_name}_vs_{self._y_name}{self._norm_method}.tsv")
-        df.to_csv(f"{self._outdir}/{self._x_name}_vs_{self._y_name}{self._norm_method}.tsv", sep = "\t", header = True, index = False)
+        df.to_csv(f"{self._outdir}/{self._x_name}|{self._y_name}.{self._norm_method}.tsv", sep = "\t", header = True, index = False)
         
         print("\tAll done!")
         
