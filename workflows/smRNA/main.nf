@@ -2,16 +2,12 @@
 
 /*
 ========================================================================================
-<<<<<<< HEAD
                          smRNA sequencing pipeline (can be used for riboseq as well)
-=======
-                         smRNA sequencing pipeline
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 ========================================================================================
 Ben Pastore
 pastore.28@osu.edu
 ----------------------------------------------------------------------------------------
-
+HELLO WORLD
 To do: 
 
 make method to normalize to spike in sequences 
@@ -46,10 +42,6 @@ set path to bin and index
 params.bin = "${params.base}/../../bin"
 params.index = "${params.base}/../../index"
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 /*
 ////////////////////////////////////////////////////////////////////
 validate results
@@ -65,18 +57,12 @@ Enable dls2 language --> import modules
 nextflow.enable.dsl=2
 
 include { TRIM_GALORE } from '../../modules/trimgalore/main.nf'
-<<<<<<< HEAD
 include { ARTIFACTS_FILTER } from '../../modules/filter/main.nf'
 include { TRIM_POLYA } from '../../modules/filter/main.nf'
 include { TRIM_UMI } from '../../modules/filter/main.nf'
 include { BOWTIE_INDEX } from '../../modules/bowtie/main.nf'
 include { BOWTIE_ALIGN_GENOME } from '../../modules/bowtie/main.nf'
 include { BOWTIE_ALIGNMENT_MASTER_TABLE } from '../../modules/bowtie/main.nf'
-=======
-include { BOWTIE_INDEX } from '../../modules/bowtie/main.nf'
-include { BOWTIE_ALIGN_GENOME } from '../../modules/bowtie/main.nf'
-//include { BOWTIE_ALIGNMENT_MASTER_TABLE } from '../../modules/bowtie/main.nf'
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 include { REMOVE_CONTAMINANT } from '../../modules/bowtie/main.nf'
 include { RBIND_ALIGNMENT_LOG } from '../../modules/misc/main.nf'
 include { COUNT_FEATURES } from '../../modules/counter/main.nf'
@@ -101,14 +87,7 @@ Subworkflow
 workflow TRIMGALORE {
 
     if (params.fastq)   { ; } else { exit 1, 'Comma separaterd list of fastq files not specified. Use --fastq fq1,fq2 to specify this paramter!' }
-<<<<<<< HEAD
     
-=======
-
-    /*
-     * Parse bam files into channel taking bam file path and simple name
-     */
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     TRIMGALORE_INPUT( params.fastq )
 
     reads_ch = TRIMGALORE_INPUT
@@ -117,7 +96,6 @@ workflow TRIMGALORE {
         .splitCsv( header: ['condition', 'reads'], sep: ",", skip: 1)
         .map{ row -> [ row.condition, row.reads ] }
     
-<<<<<<< HEAD
     if (params.format == 'fastq' & params.trimming) {
         
         TRIM_GALORE( reads_ch )
@@ -166,21 +144,6 @@ workflow TRIMGALORE {
     }
 
 
-=======
-    reads_ch.view()
-
-    TRIM_GALORE( reads_ch )
-    
-    fasta_ch = TRIM_GALORE.out.collapsed_fa
-    
-    if (params.contaminant){
-
-        REMOVE_CONTAMINANT( params.contaminant, fasta_ch )
-        fasta_xc_ch = REMOVE_CONTAMINANT.out.xk_fasta
-
-    }
-
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 }
 
 /*
@@ -207,29 +170,16 @@ workflow {
     */
     genome_fasta = file("${params.genome}")
     genome_name = "${genome_fasta.baseName}"
-<<<<<<< HEAD
     bowtie_index = "${params.index}/bowtie/${genome_name}"
     bowtie_exists = file(bowtie_index).exists()
-=======
-    params.bowtie_index_path = "${params.index}/bowtie/${genome_name}"
-    params.bowtie_index = "${params.bowtie_index_path}/${genome_name}"
-    params.bowtie_chrom_sizes = "${params.bowtie_index_path}/${genome_name}_chrom_sizes"
-    bowtie_exists = file(params.bowtie_index_path).exists()
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
     /*
     ////////////////////////////////////////////////////////////////////
     Check tailor index is made
     ////////////////////////////////////////////////////////////////////
     */
-<<<<<<< HEAD
     tailor_index = "${params.index}/tailor/${genome_name}"
     tailor_exists = file(tailor_index).exists()
-=======
-    params.tailor_index_path = "${params.index}/tailor/${genome_name}"
-    params.tailor_index = "${params.tailor_index_path}/${genome_name}"
-    tailor_exists = file(params.tailor_index_path).exists()
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
     /*
      * Parse design file
@@ -251,7 +201,6 @@ workflow {
     /*
      * Trimming & QC
      */
-<<<<<<< HEAD
     if (params.format == 'fastq' & params.trimming) {
         
         TRIM_GALORE( reads_ch )
@@ -284,20 +233,6 @@ workflow {
         TRIM_POLYA( fasta_ch )
 
         fasta_ch = TRIM_POLYA.out.fasta
-=======
-    if (params.format == 'fasta') {
-        
-        fasta_ch = reads_ch
-
-    } else if (params.format == 'fastq' & params.trimming) {
-
-        TRIM_GALORE( reads_ch )
-        fasta_ch = TRIM_GALORE.out.collapsed_fa
-
-    } else {
-
-        exit 1, "Directory with fastq or fasta files must be specified as well as the format of the input reads (See nexflow.config file)"
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
     }
     
@@ -320,21 +255,12 @@ workflow {
      */
     if ( bowtie_exists ){
     
-<<<<<<< HEAD
         bowtie_index_ch = "${bowtie_index}/${genome_name}"
         bowtie_chrom_sizes = "${bowtie_index}/${genome_name}_chrom_sizes"
     
     } else {
 
         BOWTIE_INDEX( params.genome, params.junctions, "${bowtie_index}/${genome_name}", "${bowtie_index}/${genome_name}_chrom_sizes", genome_name)
-=======
-        bowtie_index_ch = params.bowtie_index
-        bowtie_chrom_sizes = params.bowtie_chrom_sizes
-    
-    } else {
-
-        BOWTIE_INDEX( params.genome, params.junctions )
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
         bowtie_index_ch = BOWTIE_INDEX.out.bowtie_index
         bowtie_chrom_sizes = BOWTIE_INDEX.out.bowtie_chrom_sizes
     }
@@ -351,22 +277,11 @@ workflow {
 
     RBIND_ALIGNMENT_LOG( params.outprefix, bowtie_alignment_logs_ch )
 
-<<<<<<< HEAD
     /* 
      * make table with chrom, start, end, seq, strand, sample1_rpm, sample2_rpm......
      */
     BOWTIE_ALIGNMENT_MASTER_TABLE( params.outprefix, BOWTIE_ALIGN_GENOME.out.bowtie_rpm.collect() )
     
-=======
-
-    /* 
-     * make table with chrom, start, end, seq, strand, sample1_rpm, sample2_rpm......
-     */
-    //BOWTIE_ALIGNMENT_MASTER_TABLE( params.outprefix, BOWTIE_ALIGN_GENOME.out.bowtie_rpm.collect() )
-    
-
-
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     /*
      * Counter
      */
@@ -437,10 +352,6 @@ workflow {
             unnormalized_counts = MASTER_TABLE.out.unnormalized_master_table_ch
 
             spikein_fasta = file("${params.spikein}")
-<<<<<<< HEAD
-
-=======
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
             spikein_name = "${spikein_fasta.simpleName}"
 
             NORMALIZE_SPIKEIN( unnormalized_counts, spikein_quant_ch.collect(), spikein_name )
@@ -457,10 +368,6 @@ workflow {
                 .out
                 .tables
                 .flatten()
-<<<<<<< HEAD
-=======
-
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
         }
     }
     
@@ -506,19 +413,11 @@ workflow {
          */
         if ( tailor_exists ){
     
-<<<<<<< HEAD
             tailor_index_ch = "${tailor_index}/${genome_name}"
 
         } else {
 
             TAILOR_INDEX( params.genome,  "${tailor_index}/${genome_name}", genome_name )
-=======
-            tailor_index_ch = params.tailor_index
-    
-        } else {
-
-            TAILOR_INDEX( params.genome )
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
             tailor_index_ch = TAILOR_INDEX.out.tailor_index
         
         }
