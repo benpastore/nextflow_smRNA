@@ -1,24 +1,25 @@
 process TAILOR_INDEX {
 
     label 'low'
-    publishDir "$params.tailor_index_path", mode : 'copy'
+    //publishDir "$params.tailor_index_path", mode : 'copy'
+    publishDir "$params.index/tailor", mode : 'copy'
 
     input :
         val fasta
+        val index
+        val name
     
     output :
-        path("*")
-        val("${params.tailor_index}"), emit : tailor_index
+        path("${name}/*")
+        val(index), emit : tailor_index
 
     script : 
-    f = file("${fasta}")
-    name = "${f.baseName}"
     """
     #!/bin/bash
 
     source activate smrnaseq
 
-    ${params.bin}/tailor_v11 build -i ${fasta} -p ${name}
+    ${params.bin}/tailor_v11 build -i ${fasta} -p ${name}/${name}
     """
 
 }

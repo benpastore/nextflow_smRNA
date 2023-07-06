@@ -2,6 +2,6 @@
 risiRNA	WormBase	gene	rRNA	*	*	G;A	21-28	*	anti	*	1000	0	1
 siRNA	WormBase;WormBase_transposon	exon;transposable_element	protein_coding;transposable_element;lincRNA;pseudogene	*	*	G;A	21-23	*	anti	*	1000	0	1
 siRNA26G	WormBase;WormBase_transposon	exon;transposable_element	protein_coding;transposable_element;lincRNA;pseudogene	*	*	G;A	26	*	anti	*	1000	0	1
-piRNA	TangLab;WormBase	gene	piRNA	*	*	T	15-40	*	sense	0_2	1	0	1
+piRNA	Tang;WormBase	gene	piRNA	*	*	T	15-40	*	sense	0_2	1	0	1
 pre_miRNA	WormBase	pre_miRNA	pre_miRNA	*	*	*	15-40	*	sense	*	1	0	1
 miRNA	WormBase	miRNA	miRNA	*	*	*	15-40	*	sense	0_2	1	0	1

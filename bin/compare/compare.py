@@ -100,6 +100,7 @@ class Compare() :
         print(f"\tPseudocount: {pseudocount}")
         # calculate log2FoldChange & pvalue
         df['log2FoldChange'] = df.apply(lambda row : fold_change(row[f'{self._x_name}'], row[f'{self._y_name}'], pseudocount), axis = 1 )
+        print(df.head())
         try : 
             df['pvalue'] = df.apply(lambda row : stats.ttest_ind( row[self._x], row[self._y], alternative = "two-sided", nan_policy = 'propagate', equal_var=True)[1], axis = 1)
         except : 
@@ -109,7 +110,7 @@ class Compare() :
 
         # export
         print(f"\tWriting files... {self._outdir}/{self._x_name}_vs_{self._y_name}{self._norm_method}.tsv")
-        df.to_csv(f"{self._outdir}/{self._x_name}|{self._y_name}.{self._norm_method}.tsv", sep = "\t", header = True, index = False)
+        df.to_csv(f"{self._outdir}/{self._x_name}_vs_{self._y_name}.{self._norm_method}.tsv", sep = "\t", header = True, index = False)
         
         print("\tAll done!")
         

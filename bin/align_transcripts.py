@@ -139,8 +139,8 @@ class Transcripts() :
 
                             if all( True if a in b else True if "*" in b else False for a,b in zip(aln_selector,rule_selector) ) :
                                 gene_ids.append(gene)
-                                seq_ids.append(gene)
-                                locus_ids.append(gene)
+                                #seq_ids.append(gene)
+                                #locus_ids.append(gene)
                                 biotypes.append(biotype)
                                 Classes.append(Class)
                                 features.append(feature)
@@ -157,9 +157,9 @@ class Transcripts() :
         q.close()
                             
         results = pd.DataFrame({
-            'gene_name':gene_ids,
-            'seq_id':seq_ids,
-            'locus_id':locus_ids,
+            'gene':gene_ids,
+            #'seq_id':seq_ids,
+            #'locus_id':locus_ids,
             'biotype':biotypes,
             'class':Classes,
             'feature':features,
@@ -167,7 +167,7 @@ class Transcripts() :
         })
         
         bed = pd.DataFrame({
-            'gene_name':gene_ids,
+            'gene':gene_ids,
             'start':starts,
             'end':ends,
             'seq':seqs,
@@ -176,7 +176,8 @@ class Transcripts() :
             'feature':features
         })
 
-        results_grouped = results.groupby(['gene_name', 'seq_id', 'locus_id', 'biotype', 'class', 'feature'])['count'].sum()
+        #results_grouped = results.groupby(['gene_name', 'seq_id', 'locus_id', 'biotype', 'class', 'feature'])['count'].sum()
+        results_grouped = results.groupby(['gene', 'biotype', 'class', 'feature'])['count'].sum()
         results_grouped = results_grouped.reset_index()
 
         if self._normalization is not None : 

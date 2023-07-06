@@ -18,6 +18,7 @@ process COUNT_FEATURES {
 
     script : 
     normalize_command = params.features_norm ? "-n ${params.features_norm}" : ''
+    rpkm_command = params.rpkm ? "-rpkm" : ''
     """
     #!/bin/bash
 
@@ -30,7 +31,7 @@ process COUNT_FEATURES {
         -a ${reference_annotation} \\
         -i ${alignment} \\
         -o \$name \\
-        ${normalize_command}
+        ${normalize_command} ${rpkm_command}
         
     """
 

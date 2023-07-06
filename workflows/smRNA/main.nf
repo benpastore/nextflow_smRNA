@@ -2,7 +2,7 @@
 
 /*
 ========================================================================================
-                         smRNA sequencing pipeline
+                         smRNA sequencing pipeline (can be used for riboseq as well)
 ========================================================================================
 Ben Pastore
 pastore.28@osu.edu
@@ -42,7 +42,6 @@ set path to bin and index
 params.bin = "${params.base}/../../bin"
 params.index = "${params.base}/../../index"
 
-
 /*
 ////////////////////////////////////////////////////////////////////
 validate results
@@ -58,9 +57,12 @@ Enable dls2 language --> import modules
 nextflow.enable.dsl=2
 
 include { TRIM_GALORE } from '../../modules/trimgalore/main.nf'
+include { ARTIFACTS_FILTER } from '../../modules/filter/main.nf'
+include { TRIM_POLYA } from '../../modules/filter/main.nf'
+include { TRIM_UMI } from '../../modules/filter/main.nf'
 include { BOWTIE_INDEX } from '../../modules/bowtie/main.nf'
 include { BOWTIE_ALIGN_GENOME } from '../../modules/bowtie/main.nf'
-//include { BOWTIE_ALIGNMENT_MASTER_TABLE } from '../../modules/bowtie/main.nf'
+include { BOWTIE_ALIGNMENT_MASTER_TABLE } from '../../modules/bowtie/main.nf'
 include { REMOVE_CONTAMINANT } from '../../modules/bowtie/main.nf'
 include { RBIND_ALIGNMENT_LOG } from '../../modules/misc/main.nf'
 include { COUNT_FEATURES } from '../../modules/counter/main.nf'
@@ -85,10 +87,7 @@ Subworkflow
 workflow TRIMGALORE {
 
     if (params.fastq)   { ; } else { exit 1, 'Comma separaterd list of fastq files not specified. Use --fastq fq1,fq2 to specify this paramter!' }
-
-    /*
-     * Parse bam files into channel taking bam file path and simple name
-     */
+    
     TRIMGALORE_INPUT( params.fastq )
 
     reads_ch = TRIMGALORE_INPUT
@@ -97,18 +96,53 @@ workflow TRIMGALORE {
         .splitCsv( header: ['condition', 'reads'], sep: ",", skip: 1)
         .map{ row -> [ row.condition, row.reads ] }
     
-    reads_ch.view()
+    if (params.format == 'fastq' & params.trimming) {
+        
+        TRIM_GALORE( reads_ch )
+        fasta_ch = TRIM_GALORE.out.collapsed_fa
 
-    TRIM_GALORE( reads_ch )
+    } else {
+        
+        fasta_ch = reads_ch
+
+    }
+
+    if (params.trim_umi) {
+
+        TRIM_UMI( fasta_ch )
+        
+        fasta_ch = TRIM_UMI.out.fasta
     
-    fasta_ch = TRIM_GALORE.out.collapsed_fa
+    }
     
+    if (params.artifacts_filter) {
+
+        ARTIFACTS_FILTER( fasta_ch )
+
+        fasta_ch = ARTIFACTS_FILTER.out.fasta
+        
+    }
+
+    if (params.trim_polyA) {
+
+        TRIM_POLYA( fasta_ch )
+
+        fasta_ch = TRIM_POLYA.out.fasta
+
+    }
+
     if (params.contaminant){
 
         REMOVE_CONTAMINANT( params.contaminant, fasta_ch )
+
         fasta_xc_ch = REMOVE_CONTAMINANT.out.xk_fasta
 
+    } else {
+
+        fasta_xc_ch = fasta_ch
+
     }
+
 
 }
 
@@ -136,19 +170,16 @@ workflow {
     */
     genome_fasta = file("${params.genome}")
     genome_name = "${genome_fasta.baseName}"
-    params.bowtie_index_path = "${params.index}/bowtie/${genome_name}"
-    params.bowtie_index = "${params.bowtie_index_path}/${genome_name}"
-    params.bowtie_chrom_sizes = "${params.bowtie_index_path}/${genome_name}_chrom_sizes"
-    bowtie_exists = file(params.bowtie_index_path).exists()
+    bowtie_index = "${params.index}/bowtie/${genome_name}"
+    bowtie_exists = file(bowtie_index).exists()
 
     /*
     ////////////////////////////////////////////////////////////////////
     Check tailor index is made
     ////////////////////////////////////////////////////////////////////
     */
-    params.tailor_index_path = "${params.index}/tailor/${genome_name}"
-    params.tailor_index = "${params.tailor_index_path}/${genome_name}"
-    tailor_exists = file(params.tailor_index_path).exists()
+    tailor_index = "${params.index}/tailor/${genome_name}"
+    tailor_exists = file(tailor_index).exists()
 
     /*
      * Parse design file
@@ -170,18 +201,38 @@ workflow {
     /*
      * Trimming & QC
      */
-    if (params.format == 'fasta') {
+    if (params.format == 'fastq' & params.trimming) {
         
-        fasta_ch = reads_ch
-
-    } else if (params.format == 'fastq' & params.trimming) {
-
         TRIM_GALORE( reads_ch )
         fasta_ch = TRIM_GALORE.out.collapsed_fa
 
     } else {
+        
+        fasta_ch = reads_ch
 
-        exit 1, "Directory with fastq or fasta files must be specified as well as the format of the input reads (See nexflow.config file)"
+    }
+
+    if (params.trim_umi) {
+
+        TRIM_UMI( fasta_ch )
+        
+        fasta_ch = TRIM_UMI.out.fasta
+    
+    }
+    
+    if (params.artifacts_filter) {
+
+        ARTIFACTS_FILTER( fasta_ch )
+
+        fasta_ch = ARTIFACTS_FILTER.out.fasta
+
+    }
+
+    if (params.trim_polyA) {
+
+        TRIM_POLYA( fasta_ch )
+
+        fasta_ch = TRIM_POLYA.out.fasta
 
     }
     
@@ -204,12 +255,12 @@ workflow {
      */
     if ( bowtie_exists ){
     
-        bowtie_index_ch = params.bowtie_index
-        bowtie_chrom_sizes = params.bowtie_chrom_sizes
+        bowtie_index_ch = "${bowtie_index}/${genome_name}"
+        bowtie_chrom_sizes = "${bowtie_index}/${genome_name}_chrom_sizes"
     
     } else {
 
-        BOWTIE_INDEX( params.genome, params.junctions )
+        BOWTIE_INDEX( params.genome, params.junctions, "${bowtie_index}/${genome_name}", "${bowtie_index}/${genome_name}_chrom_sizes", genome_name)
         bowtie_index_ch = BOWTIE_INDEX.out.bowtie_index
         bowtie_chrom_sizes = BOWTIE_INDEX.out.bowtie_chrom_sizes
     }
@@ -226,14 +277,11 @@ workflow {
 
     RBIND_ALIGNMENT_LOG( params.outprefix, bowtie_alignment_logs_ch )
 
-
     /* 
      * make table with chrom, start, end, seq, strand, sample1_rpm, sample2_rpm......
      */
-    //BOWTIE_ALIGNMENT_MASTER_TABLE( params.outprefix, BOWTIE_ALIGN_GENOME.out.bowtie_rpm.collect() )
+    BOWTIE_ALIGNMENT_MASTER_TABLE( params.outprefix, BOWTIE_ALIGN_GENOME.out.bowtie_rpm.collect() )
     
-
-
     /*
      * Counter
      */
@@ -304,6 +352,7 @@ workflow {
             unnormalized_counts = MASTER_TABLE.out.unnormalized_master_table_ch
 
             spikein_fasta = file("${params.spikein}")
+
             spikein_name = "${spikein_fasta.simpleName}"
 
             NORMALIZE_SPIKEIN( unnormalized_counts, spikein_quant_ch.collect(), spikein_name )
@@ -320,7 +369,6 @@ workflow {
                 .out
                 .tables
                 .flatten()
-
         }
     }
     
@@ -366,11 +414,11 @@ workflow {
          */
         if ( tailor_exists ){
     
-            tailor_index_ch = params.tailor_index
-    
+            tailor_index_ch = "${tailor_index}/${genome_name}"
+
         } else {
 
-            TAILOR_INDEX( params.genome )
+            TAILOR_INDEX( params.genome,  "${tailor_index}/${genome_name}", genome_name )
             tailor_index_ch = TAILOR_INDEX.out.tailor_index
         
         }
