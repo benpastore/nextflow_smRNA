@@ -139,8 +139,13 @@ class Transcripts() :
 
                             if all( True if a in b else True if "*" in b else False for a,b in zip(aln_selector,rule_selector) ) :
                                 gene_ids.append(gene)
+<<<<<<< HEAD
                                 #seq_ids.append(gene)
                                 #locus_ids.append(gene)
+=======
+                                seq_ids.append(gene)
+                                locus_ids.append(gene)
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
                                 biotypes.append(biotype)
                                 Classes.append(Class)
                                 features.append(feature)
@@ -157,9 +162,15 @@ class Transcripts() :
         q.close()
                             
         results = pd.DataFrame({
+<<<<<<< HEAD
             'gene':gene_ids,
             #'seq_id':seq_ids,
             #'locus_id':locus_ids,
+=======
+            'gene_name':gene_ids,
+            'seq_id':seq_ids,
+            'locus_id':locus_ids,
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
             'biotype':biotypes,
             'class':Classes,
             'feature':features,
@@ -167,7 +178,11 @@ class Transcripts() :
         })
         
         bed = pd.DataFrame({
+<<<<<<< HEAD
             'gene':gene_ids,
+=======
+            'gene_name':gene_ids,
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
             'start':starts,
             'end':ends,
             'seq':seqs,
@@ -176,8 +191,12 @@ class Transcripts() :
             'feature':features
         })
 
+<<<<<<< HEAD
         #results_grouped = results.groupby(['gene_name', 'seq_id', 'locus_id', 'biotype', 'class', 'feature'])['count'].sum()
         results_grouped = results.groupby(['gene', 'biotype', 'class', 'feature'])['count'].sum()
+=======
+        results_grouped = results.groupby(['gene_name', 'seq_id', 'locus_id', 'biotype', 'class', 'feature'])['count'].sum()
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
         results_grouped = results_grouped.reset_index()
 
         if self._normalization is not None : 

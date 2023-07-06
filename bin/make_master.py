@@ -32,7 +32,10 @@ class create_table() :
                 print(sample_name)
                 names.append(sample_name)
                 df = pd.read_table(f, sep = "\t")
+<<<<<<< HEAD
                 print(df.head())
+=======
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
                 save = non_count_cols + [ col ] 
                 sub = df[save]
                 my_names = non_count_cols + [ f'{sample_name}' ] 

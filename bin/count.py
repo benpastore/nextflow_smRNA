@@ -58,7 +58,11 @@ def intersect_to_best(input, output) :
 
 class Features() :
 
+<<<<<<< HEAD
     def __init__(self, alignment, annotation, features, norm_features, outprefix, rpkm) : 
+=======
+    def __init__(self, alignment, annotation, features, norm_features, outprefix) : 
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
         self._alignment = alignment
         self._annotation = annotation
@@ -66,7 +70,10 @@ class Features() :
         self._norm_feats = norm_features
         self._normalize = True if norm_features is not None else False
         self._outprefix = outprefix
+<<<<<<< HEAD
         self._normalize_rpkm = True if rpkm else False
+=======
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
         if os.path.exists(f"{self._outprefix}.log") : 
             os.remove(f"{self._outprefix}.log")
@@ -146,6 +153,7 @@ class Features() :
                 feature = 4
                 ref_strand = 5
                 gene = 6
+<<<<<<< HEAD
                 #seq = 7
                 #locus = 8
                 biotype = 7 #9
@@ -155,13 +163,30 @@ class Features() :
                 multimap = 15 #17
                 mismatch = 16 #18
                 match = 17 #19
+=======
+                seq = 7
+                locus = 8
+                biotype = 9
+                Class = 10
+                sequence = 14
+                strand = 16 
+                multimap = 17
+                mismatch = 18
+                match = 19
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
                 orientation = "sense" if info[ref_strand] == info[strand] else "anti"
 
                 if info[strand] == "+" and orientation == "sense" : 
+<<<<<<< HEAD
                     distance = int(info[10]) - int(info[1])
                 elif info[strand] == "-" and orientation == "sense" : 
                     distance = int(info[2]) - int(info[11])
+=======
+                    distance = int(info[12]) - int(info[1])
+                elif info[strand] == "-" and orientation == "sense" : 
+                    distance = int(info[2]) - int(info[13])
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
                 else : 
                     distance = 0
 
@@ -172,8 +197,12 @@ class Features() :
                     info[feature], 
                     info[biotype], 
                     classes,
+<<<<<<< HEAD
                     info[gene].split(","),
                     #(info[gene], info[seq], info[locus]),
+=======
+                    (info[gene], info[seq], info[locus]),
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
                     orientation, 
                     str(info[sequence][0]), 
                     len(info[sequence]),
@@ -197,6 +226,7 @@ class Features() :
                         # in the form [ (chrom, start, end, seq, count [ntm], strand, strand orientation, (gene, seq, locus), biotype, )
                         hits.append(
                                 [ 
+<<<<<<< HEAD
                                 info[9], 
                                 info[10], 
                                 info[11], 
@@ -207,23 +237,47 @@ class Features() :
                                 info[gene], 
                                 info[biotype], 
                                 info[8],
+=======
+                                info[11], 
+                                info[12], 
+                                info[13], 
+                                info[14], 
+                                float(info[15]), 
+                                info[16], 
+                                "sense" if info[ref_strand] == info[strand] else "anti", 
+                                (info[6], info[7], info[8]), 
+                                info[biotype], 
+                                info[10],
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
                                 int(info[match])
                                 ] + [ y[1] ] + [ y[2] ]
                         )
                         
                         if recorder in counter.keys() : 
+<<<<<<< HEAD
                             counter[recorder] += float(info[13])
                         else :
                             counter[recorder] = float(info[13])
+=======
+                            counter[recorder] += float(info[15])
+                        else :
+                            counter[recorder] = float(info[15])
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
                 
                 if self._normalize : 
                     for x,y in itertools.product( [selector], self._norm_selectors ) : 
                         if selector_match(x, y[0]) :
                             name = y[1]
                             if name in self._normalization_factors.keys() : 
+<<<<<<< HEAD
                                 self._normalization_factors[name] += float(info[13])
                             else : 
                                 self._normalization_factors[name] = float(info[13])
+=======
+                                self._normalization_factors[name] += float(info[15])
+                            else : 
+                                self._normalization_factors[name] = float(info[15])
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     
         f.close()
 
@@ -248,9 +302,15 @@ class Features() :
         bed_final.columns = ['chrom', 'start', 'end', 'seq', 'count', 'strand', 'orientation', 'gene', 'biotype', 'class', 'feature', 'rank',  'overlap']
 
         # split gene into gene_name, seq_id, locus_id
+<<<<<<< HEAD
         #bed_final[['gene_name', 'seq_id', 'locus_id']] = pd.DataFrame(bed_final['gene'].tolist(), index=bed_final.index)
 
         bed_final = bed_final[['chrom', 'start', 'end', 'seq', 'count', 'strand', 'orientation', 'biotype', 'class', 'feature', 'gene', 'rank', 'overlap']]
+=======
+        bed_final[['gene_name', 'seq_id', 'locus_id']] = pd.DataFrame(bed_final['gene'].tolist(), index=bed_final.index)
+
+        bed_final = bed_final[['chrom', 'start', 'end', 'seq', 'count', 'strand', 'orientation', 'biotype', 'class', 'feature', 'gene_name', 'seq_id', 'locus_id', 'rank', 'overlap']]
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
         self._bed_final = bed_final
 
         # output normalization constants as tab delimited dataframe
@@ -281,11 +341,16 @@ class Features() :
         """
         Combine counts by gene, biotype, class, feature
         """
+<<<<<<< HEAD
         if self._normalize_rpkm : 
             self._bed_final['count_kmer'] = self._bed_final.apply(lambda row: row['count']/len(row['seq']), axis = 1)
             self._counts = self._bed_final.groupby( ['gene', 'biotype', 'class', 'feature'] )['count_kmer'].sum().reset_index()
         else :
             self._counts = self._bed_final.groupby( ['gene', 'biotype', 'class', 'feature'] )['count'].sum().reset_index()
+=======
+
+        self._counts = self._bed_final.groupby( ['gene_name', 'seq_id', 'locus_id', 'biotype', 'class', 'feature'] )['count'].sum().reset_index()
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
     def normalize_counts(self) :
 
@@ -294,12 +359,17 @@ class Features() :
         """
         for k,v in self._normalization_factors.items() : 
             if not v == 0 :
+<<<<<<< HEAD
                 if self._normalize_rpkm : 
                     self._counts[f'count_{k}_kmer_norm'] = self._counts.apply(lambda row : 1e6*(row['count_kmer']/v), axis = 1)
                     self._bed_final[f'count_{k}_kmer_norm'] = self._bed_final.apply(lambda row : 1e6*(row['count_kmer']/v), axis = 1)
                 else : 
                     self._counts[f'count_{k}_norm'] = self._counts.apply(lambda row : 1e6*(row['count']/v), axis = 1)
                     self._bed_final[f'count_{k}_norm'] = self._bed_final.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+=======
+                self._counts[f'count_{k}_norm'] = self._counts.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+                self._bed_final[f'count_{k}_norm'] = self._bed_final.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
         self._counts.to_csv(f"{self._outprefix}.counts.tsv", sep = "\t", index = False, header = True)
         self._bed_final.to_csv(f"{self._outprefix}.bed.tsv", sep = "\t", index = False, header = True)
@@ -318,7 +388,10 @@ def get_args() :
     parser.add_argument("-f", "--features", type = str, required = True)
     parser.add_argument("-n", "--normalizeTo", type = str, required=False)
     parser.add_argument("-o", "--output", type = str, required=True)
+<<<<<<< HEAD
     parser.add_argument("-rpkm", action = 'store_true', required=False)
+=======
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     return parser.parse_args()
 
 ##################################################
@@ -331,7 +404,11 @@ def main() :
     if args.normalizeTo == "" or args.normalizeTo == '' : 
         args.normalizeTo = None
 
+<<<<<<< HEAD
     counter = Features(args.input, args.annotation, args.features, args.normalizeTo, args.output, args.rpkm)
+=======
+    counter = Features(args.input, args.annotation, args.features, args.normalizeTo, args.output)
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     counter.intersect()
     counter.features()
     counter.total_reads()
@@ -343,4 +420,10 @@ def main() :
 ##################################################
 if __name__ == "__main__" :
 
+<<<<<<< HEAD
     main()
+=======
+    main()
+
+    
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca

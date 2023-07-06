@@ -39,7 +39,11 @@ echo """#!/bin/bash
 
 #SBATCH --no-requeue
 #SBATCH -c 1
+<<<<<<< HEAD
 #SBATCH --account=PCON0160 --nodes=1 --ntasks-per-node=1 --time=8:00:00 --mem=2gb
+=======
+#SBATCH --account=PAS1473 --nodes=1 --ntasks-per-node=1 --time=8:00:00 --mem=2gb
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
 nextflow $SCRIPT_DIR/main.nf $@
 

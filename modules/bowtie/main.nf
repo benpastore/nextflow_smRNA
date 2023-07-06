@@ -2,6 +2,7 @@ process BOWTIE_INDEX {
 
     label 'low'
     
+<<<<<<< HEAD
     //publishDir "$params.bowtie_index_path", mode : 'copy'
     publishDir "$params.index/bowtie", mode : 'copy'
 
@@ -22,11 +23,28 @@ process BOWTIE_INDEX {
         //val("${params.index}/bowtie/${name}/${name}"), emit : bowtie_index
 
     script :
+=======
+    publishDir "$params.bowtie_index_path", mode : 'copy'
+    
+    input :
+        val genome
+        val juncs
+
+    output :
+        path("*.ebwt")
+        path("*chrom_sizes"), emit : bowtie_chrom_sizes
+        val("${params.bowtie_index}"), emit : bowtie_index
+
+    script : 
+    f = file("${genome}")
+    name = "${f.baseName}"
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     """
     #!/bin/bash
 
     source activate smrnaseq
 
+<<<<<<< HEAD
     [ ! -d ${name} ] && mkdir -p ${name}
 
     # bowtie
@@ -36,6 +54,15 @@ process BOWTIE_INDEX {
     samtools faidx ${genome}
     cat ${genome}.fai | cut -f1,2 > ${name}/${name}_chrom_sizes
     rm ${genome}.fai
+=======
+    # bowtie
+    bowtie-build --quiet ${genome} ${name} --threads ${task.cpus}
+    bowtie-build --quiet ${juncs} ${name}_juncs --threads ${task.cpus}
+
+    samtools faidx ${genome}
+    cat ${genome}.fai | cut -f1,2 > ${name}_chrom_sizes
+
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     """
 }
 
@@ -43,8 +70,13 @@ process REMOVE_CONTAMINANT {
     
     label 'low'
     
+<<<<<<< HEAD
     publishDir "$params.results/trim_galore/x_contaminant", mode : 'copy', pattern : "*.xc.fa"
     publishDir "$params.results/trim_galore/x_contaminant", mode : 'copy', pattern : "*.sam"
+=======
+    publishDir "$params.results/trim_galore/collapsed_xc", mode : 'copy', pattern : "*.xc.fa"
+    publishDir "$params.results/trim_galore/xc_aligned", mode : 'copy', pattern : "*.sam"
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
     input : 
         val idx 
@@ -84,7 +116,10 @@ process BOWTIE_ALIGN_GENOME {
     publishDir "$params.results/alignment/bw", mode : 'copy', pattern : "*.bw"
     publishDir "$params.results/alignment/bam", mode : 'copy', pattern : "*.bai"
     publishDir "$params.results/alignment/bam", mode : 'copy', pattern : "*.bam"
+<<<<<<< HEAD
     publishDir "$params.results/alignment/rpkm", mode : 'copy', pattern : "*.rpkm"
+=======
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     publishDir "$params.results/bowtie_unaligned", mode : 'copy', pattern : "*.unmapped.genome.junc.v0.m1.fa"
     publishDir "$params.results/logs", mode : 'copy', pattern : "*.log"
 
@@ -103,7 +138,10 @@ process BOWTIE_ALIGN_GENOME {
         path("*.sorted.bam")
         path("*.sorted.bam.bai")
         path("*.bw")
+<<<<<<< HEAD
         path("*.rpkm")
+=======
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
     script : 
     mismatch_command = params.mismatch || params.mismatch == 0 ? "-v ${params.mismatch}" : ''
@@ -122,7 +160,10 @@ process BOWTIE_ALIGN_GENOME {
     bed=\$id.bed
     ntm=\$id.ntm
     rpm=\$id.rpm
+<<<<<<< HEAD
     rpkm=\$id.rpkm
+=======
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     bw=\$id.bw
     log=\$id.log
     dep=\$id.depth
@@ -211,6 +252,7 @@ process BOWTIE_ALIGN_GENOME {
     echo \$depth > depth
 
     # normalize ntm file to rpm, remove multimappers and non-perfect alignments
+<<<<<<< HEAD
     echo -e "chrom\tstart\tend\tseq\tcount_rpm\tstrand" > header 
     cat \$ntm | awk '(\$7==1 && \$8==0)' | awk -F'\\t' -v OFS='\\t' -v nTag=\$depth '{print \$1,\$2,\$3,\$4,1000000*(\$5/nTag),\$6}' > rpm.tmp
     cat header rpm.tmp > \$rpm
@@ -223,6 +265,19 @@ process BOWTIE_ALIGN_GENOME {
     # make bw file of all alignments
     cat rpm.tmp | awk -F'\\t' '{OFS="\\t"; if (\$2>=\$3) print \$1,\$2,\$3+1,\$4,\$5; else print \$1,\$2,\$3,\$4,\$5 }' | sort-bed - > tmp.sorted
     bedops --partition tmp.sorted | bedmap --echo --sum --delim '\\t' - tmp.sorted | awk -F '\\t' '{OFS="\\t"; print \$1,\$2,\$3,1*\$4}' > tmp.bg
+=======
+    echo -e "\tchrom\tstart\tend\tseq\tcount_rpm\tstrand" > header 
+
+    cat \$ntm | awk '(\$7==1 && \$8==0)' | awk -F'\\t' -v OFS='\\t' -v nTag=\$depth '{print \$1,\$2,\$3,\$4,1000000*(\$5/nTag),\$6}' > rpm.tmp
+    
+    cat header rpm.tmp > \$rpm
+
+    # make bw file of all alignments
+    cat rpm.tmp | awk -F'\\t' '{OFS="\\t"; if (\$2>=\$3) print \$1,\$2,\$3+1,\$4,\$5; else print \$1,\$2,\$3,\$4,\$5 }' | sort-bed - > tmp.sorted
+    
+    bedops --partition tmp.sorted | bedmap --echo --sum --delim '\\t' - tmp.sorted | awk -F '\\t' '{OFS="\\t"; print \$1,\$2,\$3,1*\$4}' > tmp.bg
+    
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     ${params.bin}/bedGraphToBigWig tmp.bg ${chrom_sizes} \$bw
 
     # find total reads sequenced
@@ -247,7 +302,11 @@ process BOWTIE_ALIGNMENT_MASTER_TABLE {
 
     label 'medium'
 
+<<<<<<< HEAD
     publishDir "$params.results/alignment/alignment_master_table", mode : 'copy', pattern : "*tsv"
+=======
+    publishDir "$params.results/alignment/alignment_master_table", mode : 'copy', pattern : "*.tsv"
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
     input :
         val project_name
@@ -255,7 +314,11 @@ process BOWTIE_ALIGNMENT_MASTER_TABLE {
 
     output : 
         path("*count*tsv"), emit : tables
+<<<<<<< HEAD
         path("*tsv"), emit : unnormalized_master_table_ch
+=======
+        path("*.count.tsv"), emit : unnormalized_master_table_ch
+>>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     
     script :
     mismatch = params.mismatch || params.mismatch == 0 ? "${params.mismatch}" : ''
