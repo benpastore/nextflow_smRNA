@@ -131,7 +131,6 @@ class Features() :
                 feature = 4
                 ref_strand = 5
                 gene = 6
-<<<<<<< HEAD
                 #seq = #7
                 #locus = #8
                 biotype = 7 #9
@@ -141,32 +140,15 @@ class Features() :
                 tail = 15 #17
                 multimap = 16 #18
                 match = 17 #19
-=======
-                seq = 7
-                locus = 8
-                biotype = 9
-                Class = 10
-                sequence = 14
-                strand = 16
-                tail = 17
-                multimap = 18
-                match = 19
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
                 mismatch = 0
 
                 orientation = "sense" if info[ref_strand] == info[strand] else "anti"
 
                 if info[strand] == "+" and orientation == "sense" : 
-<<<<<<< HEAD
                     distance = int(info[10]) - int(info[1])
                 elif info[strand] == "-" and orientation == "sense" : 
                     distance = int(info[2]) - int(info[11])
-=======
-                    distance = int(info[12]) - int(info[1])
-                elif info[strand] == "-" and orientation == "sense" : 
-                    distance = int(info[2]) - int(info[13])
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
                 else : 
                     distance = 0
 
@@ -175,12 +157,8 @@ class Features() :
                     info[feature], 
                     info[biotype], 
                     info[Class],
-<<<<<<< HEAD
                     info[gene].split(','),
                     #(info[gene], info[seq], info[locus]),
-=======
-                    (info[gene], info[seq], info[locus]),
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
                     orientation, 
                     str(info[sequence][0]), 
                     len(info[sequence])-len(info[tail]),
@@ -200,7 +178,6 @@ class Features() :
 
                 for x,y in itertools.product( [selector], self._feature_selectors ) :
                     if selector_match(x,y[0]) :
-<<<<<<< HEAD
                         if filter_tails(info[sequence], info[tail], info[9], int(info[10]), int(info[11]), info[strand], self._records, 4) :
                             hits.append(
                                     [ 
@@ -214,36 +191,15 @@ class Features() :
                                     info[gene], 
                                     info[biotype], 
                                     info[8], 
-=======
-                        if filter_tails(info[sequence], info[tail], info[11], int(info[12]), int(info[13]), info[strand], self._records, 4) :
-                            hits.append(
-                                    [ 
-                                    info[11], 
-                                    int(info[12]),
-                                    int(info[13]), #+len(info[tail]) 
-                                    info[14], 
-                                    float(info[15]), 
-                                    info[16], 
-                                    "sense" if info[ref_strand] == info[strand] else "anti", 
-                                    (info[6], info[7], info[8]), 
-                                    info[biotype], 
-                                    info[10], 
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
                                     info[tail],
                                     int(info[match])
                                     ] + [ y[1] ] + [ y[2] ]
                             )
                             
                             if recorder in counter.keys() : 
-<<<<<<< HEAD
                                 counter[recorder] += float(info[13])
                             else :
                                 counter[recorder] = float(info[13])
-=======
-                                counter[recorder] += float(info[15])
-                            else :
-                                counter[recorder] = float(info[15])
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
         f.close()
 
         # make counter an instance of the class
@@ -268,18 +224,11 @@ class Features() :
         bed_final.columns = ['chrom', 'start', 'end', 'seq', 'count', 'strand', 'orientation', 'gene', 'biotype', 'class', 'feature', 'rank', 'overlap']
 
         # split gene into gene_name, seq_id, locus_id
-<<<<<<< HEAD
         #bed_final[['gene_name', 'seq_id', 'locus_id']] = pd.DataFrame(bed_final['gene'].tolist(), index=bed_final.index)
         
         # remove `gene` column
         #self._bed_final = bed_final.drop(['gene'], axis = 1)
         self._bed_final = bed_final
-=======
-        bed_final[['gene_name', 'seq_id', 'locus_id']] = pd.DataFrame(bed_final['gene'].tolist(), index=bed_final.index)
-        
-        # remove `gene` column
-        self._bed_final = bed_final.drop(['gene'], axis = 1)
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
     def combine_counts(self) : 
 
@@ -287,11 +236,7 @@ class Features() :
         Combine counts by gene, biotype, class, feature, tail
         """
 
-<<<<<<< HEAD
         self._counts = self._bed_final.groupby( ['gene','biotype', 'class', 'tail', 'feature'] )['count'].sum().reset_index()
-=======
-        self._counts = self._bed_final.groupby( ['gene_name', 'seq_id', 'locus_id', 'biotype', 'class', 'tail', 'feature'] )['count'].sum().reset_index()
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
 
     def normalize_counts(self) :
 

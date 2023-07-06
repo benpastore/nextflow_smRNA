@@ -45,7 +45,7 @@ nextflow $SCRIPT_DIR/main.nf $@
 
 
 """ > $SCRIPT_DIR/submit.sbatch
-sbatch $SCRIPT_DIR/submit.sbatch
+sh $SCRIPT_DIR/submit.sbatch
 
 }
   

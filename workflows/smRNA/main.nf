@@ -9,8 +9,7 @@ pastore.28@osu.edu
 ----------------------------------------------------------------------------------------
 HELLO WORLD
 To do: 
-
-make method to normalize to spike in sequences 
+Add option to do alignment with STAR, might be useful for analyzing riboseq data
 */
 
 def helpMessage() {

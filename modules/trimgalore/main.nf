@@ -2,7 +2,6 @@ process TRIM_GALORE {
 
     label 'low'
 
-    //publishDir "$params.results/trim_galore/fastq", mode : 'copy', pattern : "*_trimmed.fq.gz"
     publishDir "$params.results/trim_galore/logs", mode : 'copy', pattern : "*_trimming_report.txt"
     publishDir "$params.results/trim_galore/collapsed", mode : 'copy', pattern : "*.trimmed.uniq.fa"
 
@@ -27,10 +26,7 @@ process TRIM_GALORE {
     t_fq=${sampleID}_trimmed.fq.gz
     fa=${sampleID}.trimmed.uniq.fa
 
-<<<<<<< HEAD
     # trim adapters
-=======
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
     trim_galore -j ${task.cpus} ${adapter} -q 30 -e 0.1 --gzip ${min_length} ${max_length} --fastqc --basename ${sampleID} \$fq
 
     sh ${params.bin}/fastq_to_uniq_fasta.sh \$t_fq \$fa
