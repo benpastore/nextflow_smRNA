@@ -139,13 +139,8 @@ class Transcripts() :
 
                             if all( True if a in b else True if "*" in b else False for a,b in zip(aln_selector,rule_selector) ) :
                                 gene_ids.append(gene)
-<<<<<<< HEAD
                                 #seq_ids.append(gene)
                                 #locus_ids.append(gene)
-=======
-                                seq_ids.append(gene)
-                                locus_ids.append(gene)
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
                                 biotypes.append(biotype)
                                 Classes.append(Class)
                                 features.append(feature)
@@ -162,15 +157,9 @@ class Transcripts() :
         q.close()
                             
         results = pd.DataFrame({
-<<<<<<< HEAD
             'gene':gene_ids,
             #'seq_id':seq_ids,
             #'locus_id':locus_ids,
-=======
-            'gene_name':gene_ids,
-            'seq_id':seq_ids,
-            'locus_id':locus_ids,
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
             'biotype':biotypes,
             'class':Classes,
             'feature':features,
@@ -178,11 +167,7 @@ class Transcripts() :
         })
         
         bed = pd.DataFrame({
-<<<<<<< HEAD
             'gene':gene_ids,
-=======
-            'gene_name':gene_ids,
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
             'start':starts,
             'end':ends,
             'seq':seqs,
@@ -190,24 +175,35 @@ class Transcripts() :
             'strand':strands,
             'feature':features
         })
-
-<<<<<<< HEAD
-        #results_grouped = results.groupby(['gene_name', 'seq_id', 'locus_id', 'biotype', 'class', 'feature'])['count'].sum()
-        results_grouped = results.groupby(['gene', 'biotype', 'class', 'feature'])['count'].sum()
-=======
-        results_grouped = results.groupby(['gene_name', 'seq_id', 'locus_id', 'biotype', 'class', 'feature'])['count'].sum()
->>>>>>> 3f1103a9195e2e904318679d1ea7e24fe48260ca
-        results_grouped = results_grouped.reset_index()
-
-        if self._normalization is not None : 
-            for k,v in self._normalization_features.items() : 
-                if not v == 0 :
-                    results_grouped[f'count_{k}_norm'] = results_grouped.apply(lambda row : 1e6*(row['count']/v), axis = 1)
-                    bed[f'count_{k}_norm'] = bed.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+        
+        if self._normalize_rpkm :
+            self._bed_final['count_kmer'] = bed.apply(lambda row: row['count']/len(row['seq']), axis = 1)
+            self._counts = self._bed_final.groupby( ['gene', 'biotype', 'class', 'feature'] )['count_kmer'].sum().reset_index()
+        else : 
+            self._bed_final = self._bed
+            self._counts = bed.groupby( ['gene', 'biotype', 'class', 'feature'] )['count'].sum().reset_index()
 
 
-        results_grouped.to_csv(f"{self._outname}.counts.tsv", sep = "\t", index = False, header = True)
-        bed.to_csv(f"{self._outname}.bed.tsv", sep = "\t", index = False, header = True)
+        for k,v in self._normalization_factors.items() : 
+            if not v == 0 :
+                if self._normalize_rpkm : 
+                    self._counts[f'count_{k}_kmer_norm'] = self._counts.apply(lambda row : 1e6*(row['count_kmer']/v), axis = 1)
+                    self._bed_final[f'count_{k}_kmer_norm'] = self._bed_final.apply(lambda row : 1e6*(row['count_kmer']/v), axis = 1)
+                else : 
+                    self._counts[f'count_{k}_norm'] = self._counts.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+                    self._bed_final[f'count_{k}_norm'] = self._bed_final.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+
+        #if self._normalization is not None : 
+        #    for k,v in self._normalization_features.items() :
+        #        if not v == 0 :
+        #            if self._normalize_rpkm :
+        #                results_grouped[f'count_{k}_kmer_norm'] = results_grouped.apply(lambda row : 1e6*(row['count_kmer']/v), axis = 1)
+        #                bed[f'count_{k}_kmer_norm'] = bed.apply(lambda row : 1e6*(row['count_kmer']/v), axis = 1)
+        #            else : 
+        #                results_grouped[f'count_{k}_norm'] = results_grouped.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+        #                bed[f'count_{k}_norm'] = bed.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+        self._counts.to_csv(f"{self._outname}.counts.tsv", sep = "\t", index = False, header = True)
+        self._bed_final.to_csv(f"{self._outname}.bed.tsv", sep = "\t", index = False, header = True)
 
 def get_args() : 
 
