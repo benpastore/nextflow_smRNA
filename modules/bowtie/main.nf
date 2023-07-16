@@ -211,13 +211,14 @@ process BOWTIE_ALIGN_GENOME {
     echo \$depth > depth
 
     # normalize ntm file to rpm, remove multimappers and non-perfect alignments
+    # awk '(\$7==1 && \$8==0)'
     echo -e "chrom\tstart\tend\tseq\tcount_rpm\tstrand" > header 
-    cat \$ntm | awk '(\$7==1 && \$8==0)' | awk -F'\\t' -v OFS='\\t' -v nTag=\$depth '{print \$1,\$2,\$3,\$4,1000000*(\$5/nTag),\$6}' > rpm.tmp
+    cat \$ntm | awk -F'\\t' -v OFS='\\t' -v nTag=\$depth '{print \$1,\$2,\$3,\$4,1000000*(\$5/nTag),\$6}' > rpm.tmp
     cat header rpm.tmp > \$rpm
 
     # normalize ntm file to rpkm, remove multimappers and non-perfect alignments
     echo -e "chrom\tstart\tend\tseq\tcount_rpkm\tstrand" > header 
-    cat \$ntm | awk '(\$7==1 && \$8==0)' | awk -F'\\t' -v OFS='\\t' -v nTag=\$depth '{print \$1,\$2,\$3,\$4,1000000*((\$5/nTag)/length(\$5)),\$6}' > rpkm.tmp
+    cat \$rpm | awk -F'\\t' -v OFS='\\t' '{print \$1,\$2,\$3,\$4,\$5/length(\$4),\$6}' > rpkm.tmp
     cat header rpkm.tmp > \$rpkm
 
     # make bw file of all alignments

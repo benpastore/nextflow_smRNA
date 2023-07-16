@@ -59,6 +59,7 @@ include { TRIM_GALORE } from '../../modules/trimgalore/main.nf'
 include { ARTIFACTS_FILTER } from '../../modules/filter/main.nf'
 include { TRIM_POLYA } from '../../modules/filter/main.nf'
 include { TRIM_UMI } from '../../modules/filter/main.nf'
+include { HARDTRIM } from '../../modules/filter/main.nf'
 include { BOWTIE_INDEX } from '../../modules/bowtie/main.nf'
 include { BOWTIE_ALIGN_GENOME } from '../../modules/bowtie/main.nf'
 include { BOWTIE_ALIGNMENT_MASTER_TABLE } from '../../modules/bowtie/main.nf'
@@ -103,6 +104,14 @@ workflow TRIMGALORE {
     } else {
         
         fasta_ch = reads_ch
+
+    }
+
+    if (params.hardtrim) {
+
+        HARDTRIM( fasta_ch )
+
+        fasta_ch = HARDTRIM.out.fasta
 
     }
 
@@ -211,6 +220,14 @@ workflow {
 
     }
 
+    if (params.hardtrim) {
+
+        HARDTRIM( fasta_ch )
+        
+        fasta_ch = HARDTRIM.out.fasta
+
+    }
+
     if (params.trim_umi) {
 
         TRIM_UMI( fasta_ch )
@@ -277,9 +294,9 @@ workflow {
     RBIND_ALIGNMENT_LOG( params.outprefix, bowtie_alignment_logs_ch )
 
     /* 
-     * make table with chrom, start, end, seq, strand, sample1_rpm, sample2_rpm......
+     * make table with chrom, start, end, seq, strand, sample1_rpm, sample2_rpm...... this takes a lot of comp. time and memory
      */
-    BOWTIE_ALIGNMENT_MASTER_TABLE( params.outprefix, BOWTIE_ALIGN_GENOME.out.bowtie_rpm.collect() )
+    //BOWTIE_ALIGNMENT_MASTER_TABLE( params.outprefix, BOWTIE_ALIGN_GENOME.out.bowtie_rpm.collect() )
     
     /*
      * Counter

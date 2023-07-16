@@ -48,7 +48,7 @@ class Transcripts() :
     useful for implementation in pipelines to align smRNA reads to miRBase & repBase annotation
     """ 
 
-    def __init__(self, fasta, transcripts, normalization, outname, mismatch, multimap, index_path, build_index) : 
+    def __init__(self, fasta, transcripts, normalization, outname, mismatch, multimap, index_path, build_index, normalize_rpkm) : 
 
         self._fasta = fasta
         self._transcripts = transcripts 
@@ -57,6 +57,7 @@ class Transcripts() :
         self._mismatch = mismatch
         self._multimap = multimap
         self._build_index = build_index
+        self._normalize_rpkm = True if normalize_rpkm else False
 
         if self._normalization is not None : 
             self._normalization_features = {}
@@ -178,13 +179,12 @@ class Transcripts() :
         
         if self._normalize_rpkm :
             self._bed_final['count_kmer'] = bed.apply(lambda row: row['count']/len(row['seq']), axis = 1)
-            self._counts = self._bed_final.groupby( ['gene', 'biotype', 'class', 'feature'] )['count_kmer'].sum().reset_index()
+            self._counts = results.groupby( ['gene', 'biotype', 'class', 'feature'] )['count_kmer'].sum().reset_index()
         else : 
-            self._bed_final = self._bed
-            self._counts = bed.groupby( ['gene', 'biotype', 'class', 'feature'] )['count'].sum().reset_index()
+            self._bed_final = bed
+            self._counts = results.groupby( ['gene', 'biotype', 'class', 'feature'] )['count'].sum().reset_index()
 
-
-        for k,v in self._normalization_factors.items() : 
+        for k,v in self._normalization_features.items() : 
             if not v == 0 :
                 if self._normalize_rpkm : 
                     self._counts[f'count_{k}_kmer_norm'] = self._counts.apply(lambda row : 1e6*(row['count_kmer']/v), axis = 1)
@@ -202,6 +202,7 @@ class Transcripts() :
         #            else : 
         #                results_grouped[f'count_{k}_norm'] = results_grouped.apply(lambda row : 1e6*(row['count']/v), axis = 1)
         #                bed[f'count_{k}_norm'] = bed.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+        
         self._counts.to_csv(f"{self._outname}.counts.tsv", sep = "\t", index = False, header = True)
         self._bed_final.to_csv(f"{self._outname}.bed.tsv", sep = "\t", index = False, header = True)
 
@@ -211,66 +212,15 @@ def get_args() :
 
     parser = argparse.ArgumentParser(add_help=True)
 
-    parser.add_argument(
-        "-f", 
-        "--fasta", 
-        type = str, 
-        required = True,
-        help="fasta file of reads")
-
-    parser.add_argument(
-        "-t", 
-        "--transcripts", 
-        type = str, 
-        required = True,
-        help="tab delimited transcripts table")
-
-    parser.add_argument(
-        "-n",
-        "--normalization",
-        type = str,
-        required=False,
-        help='normalization constants'
-    )
-
-    parser.add_argument(
-        "-o",
-        "--outname",
-        type = str,
-        required=True,
-        help='outname prefix'
-    )
-
-    parser.add_argument(
-        "-v", 
-        "--mismatch", 
-        type = str, 
-        required=True,
-        help='alignment mismatch'
-    )
-
-    parser.add_argument(
-        "-m", 
-        "--multimap", 
-        type = str, 
-        required=True,
-        help='alignment multimap'
-    )
-
-    parser.add_argument(
-        "-idx", 
-        "--index_path", 
-        type = str, 
-        required=True,
-        help='path to where transcript fastas are indexed'
-    )
-
-    parser.add_argument(
-        "-index", 
-        required=False,
-        action='store_true',
-        help='indicates to build index'
-    )
+    parser.add_argument("-f", "--fasta", type = str, required = True, help="fasta file of reads")
+    parser.add_argument( "-t", "--transcripts", type = str, required = True, help="tab delimited transcripts table")
+    parser.add_argument("-n", "--normalization", type = str, required=False, help='normalization constants')
+    parser.add_argument("-o", "--outname", type = str, required=True, help='outname prefix')
+    parser.add_argument("-v", "--mismatch", type = str, required=True, help='alignment mismatch')
+    parser.add_argument("-m", "--multimap", type = str, required=True, help='alignment multimap')
+    parser.add_argument("-idx", "--index_path", type = str, required=True, help='path to where transcript fastas are indexed')
+    parser.add_argument("-index", required=False, action='store_true', help='indicates to build index')
+    parser.add_argument("-rpkm", action = 'store_true', required=False)
 
     return parser.parse_args()
 
@@ -278,7 +228,7 @@ def main() :
 
     args = get_args()
 
-    run = Transcripts(args.fasta, args.transcripts, args.normalization, args.outname, args.mismatch, args.multimap, args.index_path, args.index)
+    run = Transcripts(args.fasta, args.transcripts, args.normalization, args.outname, args.mismatch, args.multimap, args.index_path, args.index, args.rpkm)
     run.process()
 
 if __name__ == "__main__" : 

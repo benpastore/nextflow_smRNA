@@ -43,6 +43,7 @@ process TRANSCRIPTS {
     script : 
     mismatch = params.mismatch || params.mismatch == 0 ? "${params.mismatch}" : ''
     multimap = params.multimap ? "${params.multimap}" : ''
+    rpkm_command = params.rpkm ? "-rpkm" : ''
     """
     #!/bin/bash
 
@@ -57,7 +58,8 @@ process TRANSCRIPTS {
         -n ${normalization} \\
         -v ${mismatch} \\
         -m ${multimap} \\
-        -idx ${transcript_index_path}
+        -idx ${transcript_index_path} \\
+        ${rpkm_command}
         
     """
 }

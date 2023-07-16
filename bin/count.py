@@ -251,6 +251,7 @@ class Features() :
         #bed_final[['gene_name', 'seq_id', 'locus_id']] = pd.DataFrame(bed_final['gene'].tolist(), index=bed_final.index)
 
         bed_final = bed_final[['chrom', 'start', 'end', 'seq', 'count', 'strand', 'orientation', 'biotype', 'class', 'feature', 'gene', 'rank', 'overlap']]
+        
         self._bed_final = bed_final
 
         # output normalization constants as tab delimited dataframe

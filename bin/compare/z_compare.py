@@ -54,7 +54,7 @@ def parallelize_dataframe(df, func, n_cores=20):
 
 def ttest(df) :
     
-    df['pvalue'] = df.apply(lambda row: stats.ttest_ind(row['X'], row['Y'], nan_policy = 'propagate', equal_var = True)[1], axis = 1)
+    df['pvalue'] = df.apply(lambda row: stats.ttest_ind(row['IP'], row['input'], nan_policy = 'propagate', equal_var = True)[1], axis = 1)
     
     return df
 
@@ -87,11 +87,7 @@ class Compare() :
             self._outdir = outdir
 
         if "count" in os.path.basename(counts) : 
-            if len(os.path.basename(counts).split("count_")) > 1 : 
-                norm_method = os.path.basename(counts).split("count_")[1].replace("tsv", "").replace("-", "_").replace(".", "")
-            else : 
-                norm_method = os.path.basename(counts).split("count")[1].replace("tsv", "").replace("-", "_").replace(".", "")
-            print(norm_method)
+            norm_method = os.path.basename(counts).split("count")[1].replace(".tsv", "").replace("-", "_")
             self._norm_method = f"{norm_method}"
         else : 
             self._norm_method = ""
@@ -109,9 +105,6 @@ class Compare() :
 
         df[f"{self._x_name}"] = df[self._x].mean(axis = 1)
         df[f"{self._y_name}"] = df[self._y].mean(axis = 1)
-        
-        df["X"] = df[self._x].values.tolist()
-        df["Y"] = df[self._y].values.tolist()
 
         df["basemean"] = df[[f"{self._x_name}", f"{self._y_name}"]].mean(axis = 1)
         df = df[ df['basemean'] > 0 ].reset_index(drop=True)
@@ -134,7 +127,7 @@ class Compare() :
         #    df['pvalue'] = df.apply(lambda row : stats.ttest_ind( row[self._x], row[self._y], nan_policy = 'propagate', equal_var=True)[1], axis = 1)
             
         fin = fin.sort_values(by = 'gene').reset_index(drop=True)
-        fin = fin.drop(columns = ["X", "Y"])
+
         # export
         print(f"\tWriting files... {self._outdir}/{self._x_name}_vs_{self._y_name}{self._norm_method}.tsv")
         
