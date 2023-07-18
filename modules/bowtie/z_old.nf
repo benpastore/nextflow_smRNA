@@ -1,11 +1,13 @@
-process BOWTIE_INDEX_GENOME {
+process BOWTIE_INDEX {
 
     label 'low'
     
+    //publishDir "$params.bowtie_index_path", mode : 'copy'
     publishDir "$params.index/bowtie", mode : 'copy'
 
     input :
         val genome
+        val juncs
         val index
         val chrom_sizes
         val name
@@ -14,6 +16,10 @@ process BOWTIE_INDEX_GENOME {
         val(index), emit : bowtie_index
         val(chrom_sizes), emit : bowtie_chrom_sizes
         path("${name}/*")
+
+        //path("*.ebwt")
+        //path("*chrom_sizes"), emit : bowtie_chrom_sizes
+        //val("${params.index}/bowtie/${name}/${name}"), emit : bowtie_index
 
     script :
     """
@@ -25,38 +31,11 @@ process BOWTIE_INDEX_GENOME {
 
     # bowtie
     bowtie-build --quiet ${genome} ${name}/${name} --threads ${task.cpus}
+    bowtie-build --quiet ${juncs} ${name}/${name}_juncs --threads ${task.cpus}
 
     samtools faidx ${genome}
     cat ${genome}.fai | cut -f1,2 > ${name}/${name}_chrom_sizes
     rm ${genome}.fai
-    """
-}
-
-process BOWTIE_INDEX_JUNCTION {
-
-    label 'low'
-    
-    publishDir "$params.index/bowtie", mode : 'copy'
-
-    input :
-        val juncs
-        val index
-        val name
-
-    output :
-        val(index), emit : bowtie_index
-        path("${name}/*")
-
-    script :
-    """
-    #!/bin/bash
-
-    source activate smrnaseq
-
-    [ ! -d ${name} ] && mkdir -p ${name}
-
-    # bowtie
-    bowtie-build --quiet ${juncs} ${name}/${name} --threads ${task.cpus}
     """
 }
 
@@ -100,24 +79,31 @@ process BOWTIE_ALIGN_GENOME {
 
     label 'low'
 
-    publishDir "$params.results/alignment/bam", mode : 'copy', pattern : "*.bam"
+    publishDir "$params.results/alignment/ntm", mode : 'copy', pattern : "*.ntm"
+    publishDir "$params.results/alignment/rpm", mode : 'copy', pattern : "*.rpm"
+    publishDir "$params.results/alignment/bw", mode : 'copy', pattern : "*.bw"
     publishDir "$params.results/alignment/bam", mode : 'copy', pattern : "*.bai"
-    publishDir "$params.results/alignment/genome_bed", mode : 'copy', pattern : "*.bed"
-    publishDir "$params.results/alignment/genome_unmapped", mode : 'copy', pattern : "*.unmapped.fa"
+    publishDir "$params.results/alignment/bam", mode : 'copy', pattern : "*.bam"
+    publishDir "$params.results/alignment/rpkm", mode : 'copy', pattern : "*.rpkm"
+    publishDir "$params.results/bowtie_unaligned", mode : 'copy', pattern : "*.unmapped.genome.junc.v0.m1.fa"
+    publishDir "$params.results/logs", mode : 'copy', pattern : "*.log"
 
     input : 
         val idx
         tuple val(sampleID), path(fasta)
+        val chrom_sizes
 
     output : 
-        tuple val(sampleID), path("unmapped.fq"), emit : tailor_input
-        tuple val(sampleID), path("*.unmapped.fa"), emit : unmapped_fa
-        tuple val(sampleID), path("*.bed"), emit : genome_aligned_bed
+        tuple val(sampleID), path("*.unmapped.genome.junc.v0.m1.fq"), emit : tailor_input
+        tuple val(sampleID), path("*.unmapped.genome.junc.v0.m1.fa"), emit : unmapped_fa
+        tuple val(sampleID), path("*.ntm"), emit : bowtie_alignment
+        path("*.rpm"), emit : bowtie_rpm
+        tuple val(sampleID), path("*.depth"), emit : normalization_constants
+        path("*aligned*.log"), emit : alignment_logs
         path("*.sorted.bam")
         path("*.sorted.bam.bai")
-        path("*.bed")
-        path("*.unmapped.fa")
-
+        path("*.bw")
+        path("*.rpkm")
 
     script : 
     mismatch_command = params.mismatch || params.mismatch == 0 ? "-v ${params.mismatch}" : ''
@@ -130,10 +116,16 @@ process BOWTIE_ALIGN_GENOME {
     source activate smrnaseq
 
     name=\$(basename ${fasta} .fa)
-    id=\$name.genome.aligned.v${mismatch}.m${multimap}
-    bam=\$id.sorted.bam
-    bai=\$id.sorted.bam.bai
+    id=\$name.aligned.v${mismatch}.m${multimap}
+    bam=\$id.genome.sorted.bam
+    bai=\$id.genome.sorted.bam.bai
     bed=\$id.bed
+    ntm=\$id.ntm
+    rpm=\$id.rpm
+    rpkm=\$id.rpkm
+    bw=\$id.bw
+    log=\$id.log
+    dep=\$id.depth
 
     #############################################################################
     # Do Alignment with -a --best --strata, get all aligned reads in best stratum
@@ -143,12 +135,24 @@ process BOWTIE_ALIGN_GENOME {
         -f ${fasta} \\
         -p ${task.cpus} \\
         -a \\
-        --un \$id.unmapped.fa \\
+        --un \$name.tmp \\
         --best \\
         --strata \\
         ${mismatch_command} \\
         ${multimap_command} \\
         -S > aligned.genome.sam 2> genome.log
+    
+    bowtie \\
+        -x ${idx}_juncs \\
+        -f \$name.tmp \\
+        -p ${task.cpus} \\
+        -a \\
+        --un \$name.unmapped.uni.fa \\
+        --best \\
+        --strata \\
+        ${mismatch_command} \\
+        ${multimap_command} \\
+        -S > aligned.junc.sam 2> junc.log
 
     ##############################################################################
     # Do Alignment with -v 0, get reads that do not map perfectly, send to Tailor
@@ -160,12 +164,24 @@ process BOWTIE_ALIGN_GENOME {
         -v 0 \\
         -m 1 \\
         -a \\
-        --un unmapped \\
+        --un unmapped.genome.v0.tmp \\
         --best \\
         --strata \\
         -S > mapped.v0.sam
-    
-    python3 ${params.bin}/uniq_fasta_to_uniq_fastq.py unmapped > unmapped.fq
+    python3 ${params.bin}/uniq_fasta_to_uniq_fastq.py unmapped.genome.v0.tmp > \$name.unmapped.genome.junc.v0.m1.fq
+
+    #bowtie \\
+    #    -x ${idx}_juncs \\
+    #    -f unmapped.genome.v0.tmp \\
+    #    -p ${task.cpus} \\
+    #    -v 0 \\
+    #    -m 1 \\
+    #    -a \\
+    #    --un \$name.unmapped.genome.junc.v0.m1.fa \\
+    #    --best \\
+    #    --strata \\
+    #    -S > mapped.junc.v0.sam
+    #python3 ${params.bin}/uniq_fasta_to_uniq_fastq.py \$name.unmapped.genome.junc.v0.m1.fa > \$name.unmapped.genome.junc.v0.m1.fq
 
     ########################################################################
     # Process alignment
@@ -178,135 +194,17 @@ process BOWTIE_ALIGN_GENOME {
     samtools index -@ ${task.cpus} \$bam
     
     # convert bam -> bed
-    bam2bed < \$bam | awk -F'\\t' -v OFS='\\t' '{split(\$4,a,":"); split(\$16,b,":"); print \$1,\$2,\$3,a[1],a[2],\$6,b[3] }' > \$bed
-    """
-}
-    
-process BOWTIE_ALIGN_JUNCTION {
-
-    label 'low'
-
-    publishDir "$params.results/alignment/junc_bed", mode : 'copy', pattern : "*.bed"
-    publishDir "$params.results/alignment/junc_unmapped", mode : 'copy', pattern : "*.unmapped.fa"
-
-    input : 
-        val idx
-        tuple val(sampleID), path(fasta)
-
-    output : 
-        tuple val(sampleID), path("unmapped.fq"), emit : tailor_input
-        tuple val(sampleID), path("*.bed"), emit : junction_aligned_bed
-        path("*.unmapped.fa")
-
-    script : 
-    mismatch_command = params.mismatch || params.mismatch == 0 ? "-v ${params.mismatch}" : ''
-    multimap_command = params.multimap ? "-m ${params.multimap}" : ''
-    mismatch = params.mismatch || params.mismatch == 0 ? "${params.mismatch}" : ''
-    multimap = params.multimap ? "${params.multimap}" : ''
-    """
-    #!/bin/bash
-
-    source activate smrnaseq
-
-    name=\$(basename ${fasta} .fa)
-    id=\$name.aligned.junctions.v${mismatch}.m${multimap}
-    bed=\$id.bed
-
-    bowtie \\
-        -x ${idx} \\
-        -f ${fasta} \\
-        -p ${task.cpus} \\
-        -a \\
-        --un \$id.unmapped.fa \\
-        --best \\
-        --strata \\
-        ${mismatch_command} \\
-        ${multimap_command} \\
-        -S > aligned.junc.sam 2> junc.log
+    bam2bed < \$bam | awk -F'\\t' -v OFS='\\t' '{split(\$4,a,":"); split(\$16,b,":"); print \$1,\$2,\$3,a[1],a[2],\$6,b[3] }' > aligned.genome.sorted.bed
 
     # process alignment to junciton. bed -> junction bed (split the read across the junction)
-    
     sam2bed < aligned.junc.sam  | awk -F'\\t' -v OFS='\\t' '{split(\$4,a,":"); split(\$16,b,":"); print \$1,\$2,\$3,a[1],a[2],\$6,b[3] }' > tmp
+    python3 ${params.bin}/junc_bed2bed.py -i tmp -o aligned.junc.bed
 
-    python3 ${params.bin}/junc_bed2bed.py -i tmp -o \$bed
-
-    # align with -m 1 -v 0 for tailor
-    bowtie \\
-        -x ${idx} \\
-        -f ${fasta} \\
-        -p ${task.cpus} \\
-        -v 0 \\
-        -m 1 \\
-        -a \\
-        --un unmapped \\
-        --best \\
-        --strata \\
-        -S > mapped.v0.sam
-    
-    python3 ${params.bin}/uniq_fasta_to_uniq_fastq.py unmapped > unmapped.fq
-    """
-}
-
-process COMBINE_GENOME_JUNC_BED {
-
-    label 'low'
-
-    publishDir "$params.results/alignment/combined_bed", mode : 'copy', pattern : "*.bed"
-
-    input : 
-        tuple val(sampleID), path(genome_bed), path(junc_bed)
-
-    output : 
-        tuple val(sampleID), path("*.combined.bed"), emit : bed
-    
-    script : 
-    """
-    #!/bin/bash
-
-    name=\$(basename ${genome_bed} .bed)
-    cat ${genome_bed} ${junc_bed} > \$name.combined.bed
-    """
-
-}
-
-process PROCESS_ALIGNMENT {
-    
-    publishDir "$params.results/alignment/ntm", mode : 'copy', pattern : "*.ntm"
-    publishDir "$params.results/alignment/rpm", mode : 'copy', pattern : "*.rpm"
-    publishDir "$params.results/alignment/bw", mode : 'copy', pattern : "*.bw"
-    publishDir "$params.results/alignment/rpkm", mode : 'copy', pattern : "*.rpkm"
-    publishDir "$params.results/logs", mode : 'copy', pattern : "*.log"
-
-    input : 
-        tuple val(sampleID), path(bed), path(fasta)
-        val(chrom_sizes)
-
-    output : 
-        tuple val(sampleID), path("*.depth"), emit : normalization_constants
-        tuple val(sampleID), path("*.ntm"), emit : channel_ntm
-        path("*aligned*.log"), emit : alignment_logs
-        path("*.rpm"), emit : channel_rpm
-        path("*.bw")
-        path("*.rpkm")
-
-
-    script : 
-    """
-    #!/bin/bash
-
-    source activate smrnaseq
-
-    name=\$(basename ${bed} .bed)
-    id=\$name
-    ntm=\$id.ntm
-    rpm=\$id.rpm
-    rpkm=\$id.rpkm
-    bw=\$id.bw
-    log=\$id.log
-    dep=\$id.depth
+    # combine bed and junction bed -> bed
+    cat aligned.genome.sorted.bed aligned.junc.bed > \$bed
 
     # bed -> ntm (split read count / number of locations mapped)
-    python3 ${params.bin}/bed_to_ntm.py ${bed} \$ntm
+    python3 ${params.bin}/bed_to_ntm.py \$bed \$ntm
 
     # find depth from ntm file
     depth=\$(python3 ${params.bin}/add_columns.py \$ntm 4)
@@ -340,6 +238,8 @@ process PROCESS_ALIGNMENT {
 
     # Normalization constants 
     echo -e 'total\t'\$depth > \$dep
+
+    # fin
     """
 }
 

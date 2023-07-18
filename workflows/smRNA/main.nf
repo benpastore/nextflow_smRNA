@@ -60,8 +60,12 @@ include { ARTIFACTS_FILTER } from '../../modules/filter/main.nf'
 include { TRIM_POLYA } from '../../modules/filter/main.nf'
 include { TRIM_UMI } from '../../modules/filter/main.nf'
 include { HARDTRIM } from '../../modules/filter/main.nf'
-include { BOWTIE_INDEX } from '../../modules/bowtie/main.nf'
+include { BOWTIE_INDEX_GENOME } from '../../modules/bowtie/main.nf'
+include { BOWTIE_INDEX_JUNCTION } from '../../modules/bowtie/main.nf'
 include { BOWTIE_ALIGN_GENOME } from '../../modules/bowtie/main.nf'
+include { BOWTIE_ALIGN_JUNCTION } from '../../modules/bowtie/main.nf'
+include { COMBINE_GENOME_JUNC_BED } from '../../modules/bowtie/main.nf'
+include { PROCESS_ALIGNMENT } from '../../modules/bowtie/main.nf'
 include { BOWTIE_ALIGNMENT_MASTER_TABLE } from '../../modules/bowtie/main.nf'
 include { REMOVE_CONTAMINANT } from '../../modules/bowtie/main.nf'
 include { RBIND_ALIGNMENT_LOG } from '../../modules/misc/main.nf'
@@ -173,13 +177,21 @@ workflow {
 
     /*
     ////////////////////////////////////////////////////////////////////
-    Check bowtie index is made
+    Check bowtie genome index is made
     ////////////////////////////////////////////////////////////////////
     */
     genome_fasta = file("${params.genome}")
     genome_name = "${genome_fasta.baseName}"
     bowtie_index = "${params.index}/bowtie/${genome_name}"
     bowtie_exists = file(bowtie_index).exists()
+
+
+    if ( params.align_junction ) {
+        junction_fasta = file("${params.junctions}")
+        junction_name = "${junction_fasta.baseName}"
+        bowtie_junction_index = "${params.index}/bowtie/${junction_name}"
+        bowtie_junction_exists = file(bowtie_junction_index).exists()
+    }
 
     /*
     ////////////////////////////////////////////////////////////////////
@@ -276,22 +288,74 @@ workflow {
     
     } else {
 
-        BOWTIE_INDEX( params.genome, params.junctions, "${bowtie_index}/${genome_name}", "${bowtie_index}/${genome_name}_chrom_sizes", genome_name)
-        bowtie_index_ch = BOWTIE_INDEX.out.bowtie_index
-        bowtie_chrom_sizes = BOWTIE_INDEX.out.bowtie_chrom_sizes
+        BOWTIE_INDEX_GENOME( 
+            params.genome, 
+            "${bowtie_index}/${genome_name}", 
+            "${bowtie_index}/${genome_name}_chrom_sizes", 
+            genome_name)
+
+        bowtie_index_ch = BOWTIE_INDEX_GENOME.out.bowtie_index
+        bowtie_chrom_sizes = BOWTIE_INDEX_GENOME.out.bowtie_chrom_sizes
+    }
+
+    if ( params.align_junction ) {
+
+        if ( bowtie_junction_exists ){
+        
+            bowtie_junc_index_ch = "${bowtie_junction_index}/${junction_name}"
+        
+        } else {
+
+            BOWTIE_INDEX_JUNCTION( 
+                params.junctions, 
+                "${bowtie_junction_index}/${junction_name}", 
+                junction_name)
+
+            bowtie_junc_index_ch = BOWTIE_INDEX_JUNCTION.out.bowtie_index
+        }
     }
 
     /*
      * Bowtie align
      */
-    BOWTIE_ALIGN_GENOME( bowtie_index_ch, fasta_xc_ch, bowtie_chrom_sizes )
-    
-    bowtie_alignment_logs_ch = BOWTIE_ALIGN_GENOME
-                                .out
-                                .alignment_logs
-                                .collect()
+    BOWTIE_ALIGN_GENOME( bowtie_index_ch, fasta_xc_ch )
 
-    RBIND_ALIGNMENT_LOG( params.outprefix, bowtie_alignment_logs_ch )
+    if (params.align_junction) {
+
+        BOWTIE_ALIGN_JUNCTION(bowtie_junc_index_ch, BOWTIE_ALIGN_GENOME.out.unmapped_fa)
+
+            /*
+            * Combine bed files, left join genome bed and junc bed on sample id
+            */
+            combine_bed_ch = BOWTIE_ALIGN_GENOME
+                .out
+                .genome_aligned_bed
+                .join( BOWTIE_ALIGN_JUNCTION.out.junction_aligned_bed )
+            
+            COMBINE_GENOME_JUNC_BED( combine_bed_ch )
+
+            process_bed_ch = COMBINE_GENOME_JUNC_BED
+                .out
+                .bed
+                .join( fasta_xc_ch )
+
+    } else {
+
+        process_bed_ch = BOWTIE_ALIGN_GENOME
+            .out
+            .genome_aligned_bed
+            .join ( fasta_xc_ch )
+
+    }
+
+    PROCESS_ALIGNMENT( process_bed_ch, bowtie_chrom_sizes )
+    
+    alignment_logs_ch = PROCESS_ALIGNMENT
+                            .out
+                            .alignment_logs
+                            .collect()
+
+    //RBIND_ALIGNMENT_LOG( params.outprefix, bowtie_alignment_logs_ch )
 
     /* 
      * make table with chrom, start, end, seq, strand, sample1_rpm, sample2_rpm...... this takes a lot of comp. time and memory
@@ -303,7 +367,7 @@ workflow {
      */
     if ( params.features ) {
 
-        counter_input_ch = BOWTIE_ALIGN_GENOME.out.bowtie_alignment
+        counter_input_ch = PROCESS_ALIGNMENT.out.channel_ntm
 
         COUNT_FEATURES(
             params.features,
@@ -317,7 +381,7 @@ workflow {
 
     } else {
 
-        norm_consts_ch = BOWTIE_ALIGN_GENOME.out.normalization_constants
+        norm_consts_ch = PROCESS_ALIGNMENT.out.normalization_constants
         genomic_counts_ch = Channel.empty()
     }
 
@@ -441,11 +505,17 @@ workflow {
         /*
          * Set tailor process input channel and preform alignment 
          */
-        
-        tailor_input_ch = BOWTIE_ALIGN_GENOME
-            .out
-            .tailor_input
-            .join(norm_consts_ch)
+        if (params.align_junction) {
+            tailor_input_ch = BOWTIE_ALIGN_JUNCTION
+                .out
+                .tailor_input
+                .join(norm_consts_ch)    
+        } else {
+            tailor_input_ch = BOWTIE_ALIGN_GENOME
+                .out
+                .tailor_input
+                .join(norm_consts_ch)
+        }
 
         TAILOR_MAP(
             params.genome, 
