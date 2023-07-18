@@ -355,7 +355,7 @@ workflow {
                             .alignment_logs
                             .collect()
 
-    //RBIND_ALIGNMENT_LOG( params.outprefix, bowtie_alignment_logs_ch )
+    RBIND_ALIGNMENT_LOG( params.outprefix, alignment_logs_ch )
 
     /* 
      * make table with chrom, start, end, seq, strand, sample1_rpm, sample2_rpm...... this takes a lot of comp. time and memory
