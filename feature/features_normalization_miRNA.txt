@@ -1,3 +1,3 @@
 #Rule_Name	Source	Feature	Biotype	Gene	Class	5'_NT	Length	Match	Strand	5'-5' Distance	multimap	mismatch	rank
-germline_miRNA	WormBase	pre_miRNA	pre_miRNA	mir-35;mir-36;mir-37;mir-38;mir-39;mir-40;mir-41;mir-42;mir-56;mir-70;mir-244;mir-260;mir-788;mir-4813	*	*	*	*	sense	*	1	0	1
-all_miRNA	WormBase	pre_miRNA	pre_miRNA	*	*	*	*	*	*	*	1	0	1
+germline_miRNA	WormBase	pre_miRNA	miRNA	*	germline_miRNA	*	*	*	sense	*	1	0	1
+all_miRNA	WormBase	pre_miRNA	miRNA	*	*	*	*	*	sense	*	1	0	1

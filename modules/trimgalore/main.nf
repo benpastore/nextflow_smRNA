@@ -17,6 +17,7 @@ process TRIM_GALORE {
     adapter = params.adapter ? "-a ${params.adapter}" : ''
     min_length = params.min_length ? "--length ${params.min_length}" : ''
     max_length = params.max_length ? "--max_length ${params.max_length}" : ''
+    quality = params.quality || params.quality == 0 ? "-q ${params.quality}" : '-q 30'
     """
     #!/bin/bash 
 
@@ -27,7 +28,7 @@ process TRIM_GALORE {
     fa=${sampleID}.trimmed.uniq.fa
 
     # trim adapters
-    trim_galore -j ${task.cpus} ${adapter} -q 30 -e 0.1 --gzip ${min_length} ${max_length} --fastqc --basename ${sampleID} \$fq
+    trim_galore -j ${task.cpus} ${adapter} ${quality} -e 0.1 --gzip ${min_length} ${max_length} --fastqc --basename ${sampleID} \$fq
 
     sh ${params.bin}/fastq_to_uniq_fasta.sh \$t_fq \$fa
     

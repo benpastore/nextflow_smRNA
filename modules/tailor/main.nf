@@ -63,7 +63,7 @@ process TAILOR_MAP {
 
     # MUST map sense and be unique mapper
 
-    name=\$(basename $fastq .fq)
+    name=${sampleID}  #\$(basename $fastq .fq)
     sam=\$name.sam
     bam=\$name.bam
     bed=\$name.aligned.v0.m1.tailor.bed
