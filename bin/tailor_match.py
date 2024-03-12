@@ -27,58 +27,49 @@ def filter_tails(sequence, tail, chrom, start, end, strand, records, N = False) 
     else : 
         N = 4
 
-    print(f"Sequence: {sequence}")
-    print(f"Tail: {tail}")
+    #print(f"Sequence: {sequence}")
+    #print(f"Tail: {tail}")
 
     complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
 
     seq_minus_tail = sequence[:-int(tail_length)]
     
     lastN = seq_minus_tail[-int(N):]
-    print(f"Last {N} nucleotides: {lastN}")
+    #print(f"Last {N} nucleotides: {lastN}")
 
     if len(set(lastN)) == 1 :
-        print(f"Last 4 nucleodies are the same ({lastN})....fail")
+        #print(f"Last 4 nucleodies are the same ({lastN})....fail")
         return False
-    
-    elif tail_length >= 5 and len(set(tail)) == 1 :
-        print("Tail is of homogenous makeup...pass")
-        return True
-    
-    elif tail_length == 1 : 
-        print("Print tail length is 1...pass")
+
+    # len(set(tail)) == 1 or 
+    if tail_length == 1 or is_alternating(tail) : 
         return True
     
     else :
+        
         if strand == "+" :
             ref = str(records[chrom][start : end + tail_length].seq)
         
         else : 
             fwd = records[chrom][start - tail_length : end ].seq
-            #ref = fwd[::-1]
-            seq_obj = Seq(fwd) #I think this segment is wrong, we dont need the reverse complement we need the reverse here 03/01/2023
+            seq_obj = Seq(fwd)
             ref = str(seq_obj.reverse_complement())
-            #cat parn_YD1.trimmed.uniq.xc.unmapped.genome.junc.v0.m1.aligned.v0.m1.tailor.bed | awk '(length($7)>3)' | head | grep -v "+" | cut -f1-6 | bedtools getfasta -fi /fs/ess/PCON0160/ben/genomes/c_elegans/WS279/c_elegans.PRJNA13758.WS279.genomic.fa -bed - -s | head
+        
+        edit_distance = sum(1 for a, b in zip(sequence, ref) if a != b)
+
+        if len(tail) >= 4 and len(set(tail)) == 1 : 
+            return True 
+
+        if edit_distance == tail_length :
+            #print(f"Edit distance == tail length {sequence} (seq) vs. {ref} (ref) with tail {tail}..pass")
+            return True
             
-        print(ref)
+        else : 
+            #print(f"Edit distance does not equal tail length: {sequence} (seq) vs. {ref} (ref) with tail {tail}\ncheck for alternating tail...")
+            return False
 
-        if tail_length >= 2 and tail_length <= 5 : 
-            edit_distance = sum(1 for a, b in zip(sequence, ref) if a != b)
-
-            if edit_distance == tail_length :
-                print(f"Edit distance == tail length {sequence} (seq) vs. {ref} (ref) with tail {tail}..pass")
-                return True
-            else : 
-                print(f"Edit distance does not equal tail length: {sequence} (seq) vs. {ref} (ref) with tail {tail}\ncheck for alternating tail...")
-
-        if tail_length >= 3 : 
-            if is_alternating(tail) : 
-                print("Tail is alternating...pass")
-                return True
-    
-    print("Other tail not meeting some specification...fail")
+    #print("Other tail not meeting some specification...fail")
     return False
-
 
 def parse_normalization_constants(file) : 
 

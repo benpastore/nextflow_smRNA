@@ -3,10 +3,10 @@
 import argparse
 import os
 
-def index(ref) :
+def index(ref, path_to_tailor) :
 
     index_prefix = os.path.basename(ref).replace(".fasta", "").replace(".fa","").replace(".ref", "")
-    cmd = f"bowtie-build --quiet {ref} {index_prefix}" 
+    cmd = f"{path_to_tailor} build -i {ref} -p {index_prefix}" 
     os.system(cmd)
     
     chrom_sizes = os.path.basename(ref).replace(".fasta", "").replace(".fa","").replace(".ref", "")
@@ -26,6 +26,12 @@ def get_args() :
         required = True,
         help="tab delimited transcripts table")
 
+    parser.add_argument(
+        "--tailor", 
+        type = str, 
+        required = True,
+        help="path to tailor software")
+
     return parser.parse_args()
 
 def main() :
@@ -39,7 +45,7 @@ def main() :
                 reference = info[8]
                 print(f"Indexing {os.path.basename(reference)}")
 
-                index(reference)
+                index(reference, args.tailor)
     f.close()
 
 if __name__ == "__main__" : 

@@ -1,0 +1,218 @@
+
+        /* 
+        * Process alignment 
+        */
+        if ( primary_aligner == 'bowtie' ) {
+
+            PROCESS_ALIGNMENT( process_bed_ch, chrom_sizes )
+
+        } else {
+
+            TAILOR_PROCESS_ALIGNMENT( process_bed_ch, chrom_sizes )
+
+        }
+
+
+        /* 
+        * combine alignment logs 
+        */
+        alignment_logs_ch = PROCESS_ALIGNMENT
+                                .out
+                                .alignment_logs
+                                .collect()
+
+        RBIND_ALIGNMENT_LOG( params.outprefix, alignment_logs_ch )
+
+            
+        /*
+        * Counter
+        */
+        if ( params.features ) {
+
+            if ( primary_aligner == 'bowtie' ) {
+
+                counter_input_ch = PROCESS_ALIGNMENT.out.channel_ntm
+
+                COUNT_FEATURES(
+                    params.features,
+                    params.bed, 
+                    counter_input_ch
+                    )
+
+                norm_consts_ch = COUNT_FEATURES.out.normalization_constants
+            
+                genomic_counts_ch = COUNT_FEATURES.out.counts
+
+            } else {
+
+                counter_input_ch = TAILOR_PROCESS_ALIGNMENT.out.channel_ntm
+
+                TAILOR_COUNT_FEATURES(
+                    params.features,
+                    params.bed, 
+                    counter_input_ch,
+                    params.genome
+                    )
+
+                norm_consts_ch = TAILOR_COUNT_FEATURES.out.normalization_constants
+            
+                genomic_counts_ch = TAILOR_COUNT_FEATURES.out.counts
+
+            }
+
+        } else {
+
+            norm_consts_ch = PROCESS_ALIGNMENT.out.normalization_constants
+            genomic_counts_ch = Channel.empty()
+        }
+    } else {
+
+        GET_TOTAL_READS(fasta_xc_ch)
+        
+        norm_consts_ch = GET_TOTAL_READS.out.normalization_constants
+        
+        genomic_counts_ch = Channel.empty()
+    }
+
+    /*
+    * Transcripts
+    */
+    if (params.transcripts) {
+
+        INDEX_TRANSCRIPTS( params.transcripts )
+
+        transcripts_input_ch = fasta_xc_ch.join(norm_consts_ch)
+
+        TRANSCRIPTS(params.transcripts, transcripts_input_ch, INDEX_TRANSCRIPTS.out.transcript_index_path_ch)
+
+        transcript_counts_ch = TRANSCRIPTS.out.counts
+        
+    } else {
+
+        transcript_counts_ch = Channel.empty()
+    
+    }
+        
+    /*
+    * Combine genomic and transcripts counts
+    */
+    if (params.features || params.transcripts ) {
+
+        counts_ch = genomic_counts_ch
+            .mix( transcript_counts_ch )
+            .groupTuple()
+            .unique()
+
+        RBIND_COUNTS( counts_ch )
+
+        master_table_input = RBIND_COUNTS.out.tables
+        
+        MASTER_TABLE( params.outprefix, master_table_input.collect() )
+
+        /*
+        * Spike-ins
+        */
+        if (params.spikein) {
+
+            ALIGN_SPIKEIN( params.spikein,  fasta_xc_ch)
+
+            spikein_quant_ch = ALIGN_SPIKEIN.out.spikein_quant_ch
+
+            unnormalized_counts = MASTER_TABLE.out.unnormalized_master_table_ch
+
+            spikein_fasta = file("${params.spikein}")
+            spikein_name = "${spikein_fasta.simpleName}"
+
+            NORMALIZE_SPIKEIN( unnormalized_counts, spikein_quant_ch.collect(), spikein_name )
+
+            master_table_ch = MASTER_TABLE
+                .out
+                .tables
+                .concat( NORMALIZE_SPIKEIN.out.counts_normalized_spikein_ch )
+                .flatten()
+
+        } else {
+
+            master_table_ch = MASTER_TABLE
+                .out
+                .tables
+                .flatten()
+        }
+    }
+    
+    /*
+    * Differential gene expression analysis
+    */
+    if (params.dge) {
+
+        /*
+        * Parse comparisons file
+        */
+        conditions = DESIGN_INPUT
+            .out
+            .condition_ch
+            .splitCsv( header: ['sample', 'condition'], sep: ",", skip: 1)
+            .map{ row -> [ row.condition, row.sample ] }
+            .groupTuple()
+
+        comparisons = Channel
+            .fromPath( "${params.dge}")
+            .splitCsv( header: ['x', 'y'], sep: "\t", skip: 1)
+            .map{ row -> [ row.x, row.y ] }
+
+        comparisons_ch = comparisons
+            .combine(conditions, by : 0)
+            .map{ it -> it[1,0,2]}
+            .combine(conditions, by : 0)
+            .map{ it -> it[1,0,2,3]}
+        
+        dge_input_ch = comparisons_ch.combine(master_table_ch)
+
+        DGE( dge_input_ch )
+
+    }
+
+        /*
+        * Tailor pipeline
+        */
+        if (params.tailor && params.features && params.bed && params.align_genome){
+
+            /*
+            * Check if tailor index is build
+            */
+            if ( tailor_exists ){
+        
+                tailor_index_ch = "${tailor_index}/${genome_name}"
+
+            } else {
+
+                TAILOR_INDEX( params.genome,  "${tailor_index}/${genome_name}", genome_name )
+                tailor_index_ch = TAILOR_INDEX.out.tailor_index
+
+            }
+
+            /*
+            * Set tailor process input channel and preform alignment 
+            */
+            if (params.align_junction) {
+                tailor_input_ch = BOWTIE_ALIGN_JUNCTION
+                    .out
+                    .tailor_input
+                    .join(norm_consts_ch)    
+            } else {
+                tailor_input_ch = BOWTIE_ALIGN_GENOME
+                    .out
+                    .tailor_input
+                    .join(norm_consts_ch)
+            }
+
+            TAILOR_RUN(
+                params.genome, 
+                tailor_index_ch, 
+                params.features, 
+                params.bed, 
+                tailor_input_ch
+                )
+        }
+    }
+}

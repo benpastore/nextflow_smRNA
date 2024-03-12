@@ -29,19 +29,24 @@ class Junc2bed() :
             for line in f : 
                 info = line.strip().split("\t")
 
+                # 1-3 -> chrom, start, end
+                # 4 -> seq
+                # 5 -> ntm
+                # 6 -> strand (all should be +)
+                # 7 -> tail
+                # 8 -> tail length
+                # 9 -> number of locations mapped
 
-                
-                junction = info[0].split("|")
+                chrom = info[0]
+                junction = chrom.split("|")
                 read_start = int(info[1])
                 read_end = int(info[2])
                 seq = info[3]
-
-                #ntm = self._ntms[seq] #1 if self._ntms[seq] < 1 else round(self._ntms[seq]/2)
-                #count = (int(info[4]) / ntm) / 2
-                count = int(info[4])
+                count = float(info[4])
                 strand = info[5]
-                mismatch = info[6]
-                
+                tail = info[6]
+                ntm = float(info[7])
+
                 chrom, start, jpos, end = junction[0], int(junction[1]), junction[2].split('-'), int(junction[3])
                 
                 j_start = int(jpos[0])
@@ -71,8 +76,8 @@ class Junc2bed() :
 
                 if not left['start'] > left['end'] : 
                     if not right['start'] > right['end'] : 
-                        output.write(f"{chrom}\t{start+read_start-1}\t{j_start}\t{seq}\t{count}\t{strand}\t{mismatch}\n")
-                        output.write(f"{chrom}\t{j_end}\t{j_end+read_start+len(seq)-29}\t{seq}\t{count}\t{strand}\t{mismatch}\n")
+                        output.write(f"{chrom}\t{start+read_start-1}\t{j_start}\t{seq}\t{count}\t{strand}\t{tail}\t{ntm}\n")
+                        output.write(f"{chrom}\t{j_end}\t{j_end+read_start+len(seq)-29}\t{seq}\t{count}\t{strand}\t{tail}\t{ntm}\n")
 
         output.close()
 

@@ -4,6 +4,7 @@ process TRIM_GALORE {
 
     publishDir "$params.results/trim_galore/logs", mode : 'copy', pattern : "*_trimming_report.txt"
     publishDir "$params.results/trim_galore/collapsed", mode : 'copy', pattern : "*.trimmed.uniq.fa"
+    publishDir "$params.results/trim_galore/fastqc", mode : 'copy', pattern : '*_fastqc.{zip,html}'
 
     input :
         tuple val(sampleID), val(fastq)
@@ -12,6 +13,7 @@ process TRIM_GALORE {
         path("${sampleID}*_trimming_report.txt")
         tuple val(sampleID), path("${sampleID}_trimmed.fq.gz")
         tuple val(sampleID), path("${sampleID}.trimmed.uniq.fa"), emit : collapsed_fa
+        path("*_fastqc.{zip,html}")
 
     script : 
     adapter = params.adapter ? "-a ${params.adapter}" : ''
@@ -26,6 +28,9 @@ process TRIM_GALORE {
     fq=${fastq}
     t_fq=${sampleID}_trimmed.fq.gz
     fa=${sampleID}.trimmed.uniq.fa
+
+    # run fastqc on data before trimming
+    fastqc \$fq -o \$PWD
 
     # trim adapters
     trim_galore -j ${task.cpus} ${adapter} ${quality} -e 0.1 --gzip ${min_length} ${max_length} --fastqc --basename ${sampleID} \$fq

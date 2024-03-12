@@ -41,6 +41,8 @@ echo """#!/bin/bash
 #SBATCH -c 1
 #SBATCH --account=PAS1473 --nodes=1 --ntasks-per-node=1 --time=8:00:00 --mem=2gb
 
+module load java/21.0.2
+
 nextflow $SCRIPT_DIR/main.nf $@
 
 

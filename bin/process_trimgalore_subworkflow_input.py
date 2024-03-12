@@ -3,9 +3,7 @@
 import argparse
 import os
 
-def process(my_string) : 
-
-    print("condition,reads")
+def process(fasta) : 
 
     info = [ i for i in my_string.split(",") ]
 

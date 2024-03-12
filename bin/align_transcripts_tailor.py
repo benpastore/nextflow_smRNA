@@ -5,38 +5,31 @@ import os
 import pandas as pd 
 from bed_to_ntm import bed_to_ntm
 
-def index(ref) : 
-
-    parent_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    index_dir = f"{parent_dir}/index/transcripts"
-    ref_name = os.path.basename(ref).replace(".fa", ".rev.1.ebwt")
-
-    if not os.path.exists(index_dir) : 
-        os.mkdir(index_dir)
-
-    if os.path.exists(os.path.join(index_dir, ref_name)) : 
-        pass
-    else : 
-        cmd = f"bowtie-build --quiet {ref} {os.path.join(index_dir, ref_name)}" 
-        os.system(cmd)
-        
-        chrom_sizes = ref.replace(".fa", ".chrom_sizes")
-        os.system(f"samtools faidx {ref}")
-        os.system(f"cut -f1,2 {ref}.fai > {chrom_sizes}")
-    
-    return os.path.join(index_dir, ref_name)
-
-
-def align(ref, fasta, mism, multim) : 
+def align(ref, fasta, mism, multim, tailor_software) : 
 
     tmp = os.path.basename(fasta).replace(".fa", ".tmp")
-    cmd = f"bowtie -x {ref} -f {fasta} -p 25 -v {mism} -m {multim} -a --best --strata -S > {tmp}.sam"
+    cmd = f"{tailor_software} map -p {ref} -i {fasta} -n 25  > {tmp}.sam"
     os.system(cmd)
 
-    cmd = f"sam2bed < {tmp}.sam | awk -F'\\t' -v OFS='\\t' '{{split($4,a,\":\"); split($16,b,\":\"); print $1,$2,$3,a[1],a[2],$6,b[3] }}' > {tmp}.bed"
-    os.system(cmd)
+    lines = ''
+    with open(f"{tmp}.sam") as f : 
+        for line in f : 
+            info = line.strip().split("\t")
+            chrom = info[0]
+            start = int(info[1])
+            end = int(info[2])
+            seq = info[3].split(":")[0]
+            count = float(info[3].split(":")[1])
+            strand = info[5]
+            tail = info[6]
+            nmap = float(info[7])
+            ntm = count / nmap
 
-    bed_to_ntm(f"{tmp}.bed", f"{tmp}.ntm")
+            lines += f"{chrom}\t{start}\t{end}\t{seq}\t{ntm}\t{strand}\t{tail}\t{nmap}\n"
+    f.close() 
+    op = open(f"{tmp}.ntm", 'w')
+    op.write(lines)
+    op.close()
 
     return f"{tmp}.ntm"
 
@@ -48,7 +41,7 @@ class Transcripts() :
     useful for implementation in pipelines to align smRNA reads to miRBase & repBase annotation
     """ 
 
-    def __init__(self, fasta, transcripts, normalization, outname, mismatch, multimap, index_path, build_index, normalize_rpkm) : 
+    def __init__(self, fasta, transcripts, normalization, outname, mismatch, multimap, index_path, build_index, normalize_rpkm, tailor_path) : 
 
         self._fasta = fasta
         self._transcripts = transcripts 
@@ -58,6 +51,7 @@ class Transcripts() :
         self._multimap = multimap
         self._build_index = build_index
         self._normalize_rpkm = True if normalize_rpkm else False
+        self._tailor_path = tailor_path
 
         if self._normalization is not None : 
             self._normalization_features = {}
@@ -70,8 +64,7 @@ class Transcripts() :
     
     def process(self) : 
         
-        e = 0
-        gene_ids,  seq_ids, locus_ids, biotypes, Classes, features, counts, starts, ends, strands, seqs = [], [], [], [], [], [], [], [], [], [], []
+        gene_ids,  seq_ids, locus_ids, biotypes, Classes, features, counts, starts, ends, strands, seqs , tails, rawtails = [], [], [], [], [], [], [], [], [], [], [], [], []
         with open(self._transcripts, 'r') as q : 
             for line in q :
                 if not line.startswith("Name") : 
@@ -113,19 +106,11 @@ class Transcripts() :
                     if self._build_index : 
                         idx = index(reference)
                     else : 
-                        idx = os.path.join(self._index_path, os.path.basename(reference).replace(".fasta", "").replace(".fa","").replace(".ref", ""))
+                        idx = os.path.join(self._index_path, os.path.basename(reference).replace(".fa",""))
 
                     # align
-                    ntm = align(idx, self._fasta, self._mismatch, self._multimap)
 
-                    # chrom sizes
-                    chrom_sizes = pd.read_csv(f"{idx}.chrom_sizes", sep = "\t", header = None, names = ['chrom', 'size'])
-                    
-                    if e == 0 : 
-                        chrom_sizes_combined = chrom_sizes
-                    else : 
-                        chrom_sizes_combined = pd.concat([chrom_sizes_combined, chrom_sizes], ignore_index = True)
-                    e += 1
+                    ntm = align(idx, self._fasta, self._mismatch, self._multimap, self._tailor_path)
 
                     # process alignment
                     with open(ntm, 'r') as f : 
@@ -137,15 +122,17 @@ class Transcripts() :
                             seq = info[3]
                             count = float(info[4])
                             strand = info[5]
-                            read_multimap = int(info[6])
-                            read_mismatch = int(info[7])
+                            tailtmp = int(info[6])
+                            tail = list(set(tailtmp))[0] if len(list(set(tailtmp))) == 1 else "Other"
+                            read_multimap = int(info[7])
+                            read_mismatch = 0
 
                             orientation = "sense" if strand == "+" else "anti" 
 
                             seq_len = len(seq)
                             seq_nt = seq[0]
 
-                            aln_selector = (seq_nt, seq_len, orientation, read_multimap, read_mismatch)
+                            aln_selector = (seq_nt, seq_len, orientation, read_multimap)
 
                             if all( True if a in b else True if "*" in b else False for a,b in zip(aln_selector,rule_selector) ) :
                                 gene_ids.append(gene)
@@ -158,6 +145,8 @@ class Transcripts() :
                                 ends.append(end)
                                 strands.append(strand)
                                 seqs.append(seq)
+                                tails.append(tail)
+                                rawtails.append(tailtmp)
                                 
                             else : 
                                 pass
@@ -166,12 +155,11 @@ class Transcripts() :
                             
         results = pd.DataFrame({
             'gene':gene_ids,
-            #'seq_id':seq_ids,
-            #'locus_id':locus_ids,
             'biotype':biotypes,
             'class':Classes,
             'feature':features,
-            'count':counts
+            'count':counts,
+            'tail':tails
         })
         
         bed = pd.DataFrame({
@@ -181,16 +169,18 @@ class Transcripts() :
             'seq':seqs,
             'count':counts,
             'strand':strands,
-            'feature':features
+            'feature':features,
+            'rawtail' : rawtails,
+            'tail':tails
         })
         
         if self._normalize_rpkm :
             self._bed_final['count_kmer'] = bed.apply(lambda row: row['count']/len(row['seq']), axis = 1)
-            self._counts = results.groupby( ['gene', 'biotype', 'class', 'feature'] )['count_kmer'].sum().reset_index()
+            self._counts = results.groupby( ['gene', 'biotype', 'class', 'feature', 'tail'] )['count_kmer'].sum().reset_index()
         else : 
             self._bed_final = bed
-            self._counts = results.groupby( ['gene', 'biotype', 'class', 'feature'] )['count'].sum().reset_index()
-        
+            self._counts = results.groupby( ['gene', 'biotype', 'class', 'feature', 'tail'] )['count'].sum().reset_index()
+
         for k,v in self._normalization_features.items() : 
             if not v == 0 :
                 if self._normalize_rpkm : 
@@ -212,7 +202,6 @@ class Transcripts() :
         
         self._counts.to_csv(f"{self._outname}.counts.tsv", sep = "\t", index = False, header = True)
         self._bed_final.to_csv(f"{self._outname}.bed.tsv", sep = "\t", index = False, header = True)
-        chrom_sizes_combined.drop_duplicates().to_csv("chrom_sizes_combined", sep = "\t", index = False, header = False)
 
 def get_args() : 
 
@@ -228,6 +217,7 @@ def get_args() :
     parser.add_argument("-m", "--multimap", type = str, required=True, help='alignment multimap')
     parser.add_argument("-idx", "--index_path", type = str, required=True, help='path to where transcript fastas are indexed')
     parser.add_argument("-index", required=False, action='store_true', help='indicates to build index')
+    parser.add_argument("-tailor", required=False, action='store_true', help='indicates to build index')
     parser.add_argument("-rpkm", action = 'store_true', required=False)
 
     return parser.parse_args()
@@ -236,7 +226,7 @@ def main() :
 
     args = get_args()
 
-    run = Transcripts(args.fasta, args.transcripts, args.normalization, args.outname, args.mismatch, args.multimap, args.index_path, args.index, args.rpkm)
+    run = Transcripts(args.fasta, args.transcripts, args.normalization, args.outname, args.mismatch, args.multimap, args.index_path, args.index, args.rpkm, args.tailor)
     run.process()
 
 if __name__ == "__main__" : 

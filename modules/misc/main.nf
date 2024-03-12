@@ -158,3 +158,30 @@ process TRIMGALORE_INPUT {
     python3 ${params.bin}/process_trimgalore_subworkflow_input.py -input ${design} > trimgalore_subworkflow_input.csv
     """
 }
+
+process GET_TOTAL_READS {
+
+    label 'low'
+
+    publishDir "$params.results/total_reads", mode : 'copy', pattern : "*.tsv"
+
+    input :
+        tuple val(sampleID), val(fasta)
+    
+    output : 
+        path("${sampleID}*_total_reads.tsv")
+        tuple val(sampleID), path("${sampleID}_total_reads.tsv"), emit : normalization_constants
+
+    script : 
+    """
+    #!/bin/bash
+
+    source activate smrnaseq
+
+    fa=${fasta}
+    total_reads=${sampleID}_total_reads.tsv
+
+    python3 ${params.bin}/sum_reads.py \$fa > \$total_reads
+
+    """
+}

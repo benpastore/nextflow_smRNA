@@ -10,8 +10,25 @@ def selector_match(x,y) :
 
     All x's must be in the respective y tuple/list to pass filters.
     """
-    
-    return all( True if a in b else True if "*" in b else True if (type(a) == tuple and any(q in b for q in a)) else False for a,b in zip(x,y) )
+
+    #print("--------------------------")
+    #print(f"{x} / {y[1]}")
+    l = [ [a,b] for a,b in zip(x,y) ] 
+    truths = [ True if a in b else True if "*" in b else True if (type(a) == list and any(q in b for q in a)) else False for a,b in zip(x,y) ]
+    return all(truths)
+    #if all(truths) : 
+    #    passes = [ l[e] for e,i in enumerate(truths) if not i ]
+    #    for i in passes :
+    #        print(">>Pass")
+    #        print(f"\t>{i[0]} in {i[1]}")
+    #    return True
+    #else : 
+    #   fails = [ l[e] for e,i in enumerate(truths) if not i ]
+    #   for i in fails :
+    #       print(">>Fail")
+    #       print(f"\t>{i[0]} not in {i[1]}")
+
+    #return all( True if a in b else True if "*" in b else True if (type(a) == tuple and any(q in b for q in a)) else False for a,b in zip(x,y) )
 
 def read_features(features) : 
 

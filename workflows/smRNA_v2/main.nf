@@ -9,7 +9,8 @@ pastore.28@osu.edu
 ----------------------------------------------------------------------------------------
 HELLO WORLD
 To do: 
-Add option to do alignment with STAR, might be useful for analyzing riboseq data
+Add option to do alignment with STAR, might be useful for analyzing riboseq data and tRNA alignment
+Add option to do alignment with bowtie2
 */
 
 def helpMessage() {
@@ -46,7 +47,9 @@ params.index = "${params.base}/../../index"
 validate results
 ////////////////////////////////////////////////////////////////////
 */
-if (params.results)   { ; } else { exit 1, 'Results path not specified!' }
+
+if (params.outdir)   { ; } else { exit 1, 'Results path not specified!' }
+params.results = "${params.outdir}/${params.primary_aligner}"
 
 /*
 ////////////////////////////////////////////////////////////////////
@@ -55,11 +58,16 @@ Enable dls2 language --> import modules
 */
 nextflow.enable.dsl=2
 
+// Preprocessing
+include { DESIGN_INPUT } from '../../modules/misc/main.nf'
+include { TRIMGALORE_INPUT } from '../../modules/misc/main.nf'
 include { TRIM_GALORE } from '../../modules/trimgalore/main.nf'
 include { ARTIFACTS_FILTER } from '../../modules/filter/main.nf'
 include { TRIM_POLYA } from '../../modules/filter/main.nf'
 include { TRIM_UMI } from '../../modules/filter/main.nf'
 include { HARDTRIM } from '../../modules/filter/main.nf'
+
+// Bowtie
 include { BOWTIE_INDEX_GENOME } from '../../modules/bowtie/main.nf'
 include { BOWTIE_INDEX_JUNCTION } from '../../modules/bowtie/main.nf'
 include { BOWTIE_ALIGN_GENOME } from '../../modules/bowtie/main.nf'
@@ -71,19 +79,50 @@ include { BOWTIE_ALIGNMENT_MASTER_TABLE } from '../../modules/bowtie/main.nf'
 include { REMOVE_CONTAMINANT } from '../../modules/bowtie/main.nf'
 include { RBIND_ALIGNMENT_LOG } from '../../modules/misc/main.nf'
 include { GET_TOTAL_READS } from '../../modules/misc/main.nf'
+
+/*
+// Bowtie2
+include { BOWTIE2_INDEX_GENOME } from '../../modules/bowtie2/main.nf'
+include { BOWTIE2_INDEX_JUNCTION } from '../../modules/bowtie2/main.nf'
+include { BOWTIE2_ALIGN_GENOME } from '../../modules/bowtie2/main.nf'
+include { BOWTIE2_ALIGN_JUNCTION } from '../../modules/bowtie2/main.nf'
+*/
+
+// Feature counting 
 include { COUNT_FEATURES } from '../../modules/counter/main.nf'
-include { INDEX_TRANSCRIPTS } from '../../modules/transcripts/main.nf'
+include { TAILOR_COUNT_FEATURES } from '../../modules/counter/main.nf'
+
+// Transcript alignment
 include { TRANSCRIPTS } from '../../modules/transcripts/main.nf'
+include { TAILOR_TRANSCRIPTS } from '../../modules/transcripts/main.nf'
 include { RBIND_COUNTS } from '../../modules/misc/main.nf'
-include { DGE } from '../../modules/misc/main.nf'
+include { INDEX_TRANSCRIPTS } from '../../modules/transcripts/main.nf'
+include { INDEX_TRANSCRIPTS_TAILOR } from '../../modules/transcripts/main.nf'
+
+// Read aggregation
 include { MASTER_TABLE } from '../../modules/misc/main.nf'
+
+// Differential gene expression analysis
+include { DGE } from '../../modules/misc/main.nf'
+
+// Tailor
 include { TAILOR_INDEX } from '../../modules/tailor/main.nf'
+include { TAILOR_INDEX_JUNCTIONS } from '../../modules/tailor/main.nf'
+include { TAILOR_ALIGN } from '../../modules/tailor/main.nf'
+include { TAILOR_ALIGN_JUNCTIONS } from '../../modules/tailor/main.nf'
+include { TAILOR_PROCESS_ALIGNMENT } from '../../modules/tailor/main.nf'
 include { TAILOR_RUN } from '../../modules/tailor/main.nf'
-include { DESIGN_INPUT } from '../../modules/misc/main.nf'
-include { TRIMGALORE_INPUT } from '../../modules/misc/main.nf'
+
+// Spike-in normalization
 include { ALIGN_SPIKEIN } from '../../modules/spikein/main.nf'
 include { NORMALIZE_SPIKEIN } from '../../modules/spikein/main.nf'
+
+// merge bigwigs
 include { MERGE_BW } from '../../modules/deeptools/main.nf'
+
+// Align using custom tRNA pipeline
+include { INDEX_TRNA } from '../../modules/tRNA_alignment/main.nf'
+include { ALIGN_TRNA } from '../../modules/tRNA_alignment/main.nf'
 
 /*
 ////////////////////////////////////////////////////////////////////
@@ -187,12 +226,16 @@ workflow {
     bowtie_index = "${params.index}/bowtie/${genome_name}"
     bowtie_exists = file(bowtie_index).exists()
 
-
     if ( params.align_junction ) {
+
         junction_fasta = file("${params.junctions}")
         junction_name = "${junction_fasta.baseName}"
         bowtie_junction_index = "${params.index}/bowtie/${junction_name}"
         bowtie_junction_exists = file(bowtie_junction_index).exists()
+
+        tailor_junction_index = "${params.index}/tailor/${junction_name}"
+        tailor_junction_exists = file(tailor_junction_index).exists()
+
     }
 
     /*
@@ -237,7 +280,6 @@ workflow {
     if (params.hardtrim) {
 
         HARDTRIM( fasta_ch )
-        
         fasta_ch = HARDTRIM.out.fasta
 
     }
@@ -245,7 +287,6 @@ workflow {
     if (params.trim_umi) {
 
         TRIM_UMI( fasta_ch )
-        
         fasta_ch = TRIM_UMI.out.fasta
     
     }
@@ -253,7 +294,6 @@ workflow {
     if (params.artifacts_filter) {
 
         ARTIFACTS_FILTER( fasta_ch )
-
         fasta_ch = ARTIFACTS_FILTER.out.fasta
 
     }
@@ -261,7 +301,6 @@ workflow {
     if (params.trim_polyA) {
 
         TRIM_POLYA( fasta_ch )
-
         fasta_ch = TRIM_POLYA.out.fasta
 
     }
@@ -280,61 +319,130 @@ workflow {
 
     }
 
+    /*
+     * Alignment using bowtie or tailor
+     */
     if ( params.align_genome ) {
+
         /*
-        * Bowtie Index
+        * Bowtie 
         */
-        if ( bowtie_exists ){
-        
-            bowtie_index_ch = "${bowtie_index}/${genome_name}"
-            bowtie_chrom_sizes = "${bowtie_index}/${genome_name}_chrom_sizes"
-        
-        } else {
+        if ( params.primary_aligner == 'bowtie' ) {
 
-            BOWTIE_INDEX_GENOME( 
-                params.genome, 
-                "${bowtie_index}/${genome_name}", 
-                "${bowtie_index}/${genome_name}_chrom_sizes", 
-                genome_name)
+            // Check to make bowtie genome index exists
+            if ( bowtie_exists ){
+                index_ch = "${bowtie_index}/${genome_name}"
+                chrom_sizes = "${bowtie_index}/${genome_name}_chrom_sizes"
 
-            bowtie_index_ch = BOWTIE_INDEX_GENOME.out.bowtie_index
-            bowtie_chrom_sizes = BOWTIE_INDEX_GENOME.out.bowtie_chrom_sizes
-        }
-
-        if ( params.align_junction ) {
-
-            if ( bowtie_junction_exists ){
-            
-                bowtie_junc_index_ch = "${bowtie_junction_index}/${junction_name}"
-            
             } else {
+                BOWTIE_INDEX_GENOME( 
+                    params.genome, 
+                    "${bowtie_index}/${genome_name}", 
+                    "${bowtie_index}/${genome_name}_chrom_sizes", 
+                    genome_name)
 
-                BOWTIE_INDEX_JUNCTION( 
-                    params.junctions, 
-                    "${bowtie_junction_index}/${junction_name}", 
-                    junction_name)
-
-                bowtie_junc_index_ch = BOWTIE_INDEX_JUNCTION.out.bowtie_index
+                index_ch = BOWTIE_INDEX_GENOME.out.bowtie_index
+                chrom_sizes = BOWTIE_INDEX_GENOME.out.bowtie_chrom_sizes
             }
-        }
 
-        /*
-        * Bowtie align
-        */
-        BOWTIE_ALIGN_GENOME( bowtie_index_ch, fasta_xc_ch )
+            // Align genome
+            BOWTIE_ALIGN_GENOME( index_ch, fasta_xc_ch )
 
-        if (params.align_junction) {
+            // option to align to junctions
+            if ( params.align_junction ) {
 
-            BOWTIE_ALIGN_JUNCTION(bowtie_junc_index_ch, BOWTIE_ALIGN_GENOME.out.unmapped_fa)
+                // check to see if junction index exists
+                if ( bowtie_junction_exists ){
 
-                /*
-                * Combine bed files, left join genome bed and junc bed on sample id
-                */
+                    junc_index_ch = "${bowtie_junction_index}/${junction_name}"
+                
+                } else {
+                    BOWTIE_INDEX_JUNCTION( 
+                        params.junctions, 
+                        "${bowtie_junction_index}/${junction_name}", 
+                        junction_name)
+
+                    junc_index_ch = BOWTIE_INDEX_JUNCTION.out.bowtie_index
+                }
+                
+                // align to junctions
+                BOWTIE_ALIGN_JUNCTION(junc_index_ch, BOWTIE_ALIGN_GENOME.out.unmapped_fa)
+
+                // combine bed files
                 combine_bed_ch = BOWTIE_ALIGN_GENOME
+                        .out
+                        .genome_aligned_bed
+                        .join( BOWTIE_ALIGN_JUNCTION.out.junction_aligned_bed )
+                    
+                COMBINE_GENOME_JUNC_BED( combine_bed_ch )
+
+                combined_bed_ch = COMBINE_GENOME_JUNC_BED
+                    .out
+                    .bed
+                    .join( fasta_xc_ch )
+            } else {
+                // if not align junctions take bowtie align genome as the combined bed channel
+                combined_bed_ch = BOWTIE_ALIGN_GENOME
                     .out
                     .genome_aligned_bed
-                    .join( BOWTIE_ALIGN_JUNCTION.out.junction_aligned_bed )
+                    .join ( fasta_xc_ch )
+
+            }
+
+        /*
+        * Tailor
+        */
+        } else {
                 
+            // check to see if tailor index exists 
+            if ( tailor_exists ){
+
+                index_ch = "${tailor_index}/${genome_name}"
+                chrom_sizes = "${tailor_index}/${genome_name}_chrom_sizes"
+
+            } else {
+
+                TAILOR_INDEX( 
+                    params.genome, 
+                    "${tailor_index}/${genome_name}", 
+                    "${tailor_index}/${genome_name}_chrom_sizes", 
+                    genome_name)
+
+                index_ch = TAILOR_INDEX.out.tailor_index
+                chrom_sizes = TAILOR_INDEX.out.chrom_sizes
+
+            }
+
+            // align reads using tailor
+            TAILOR_ALIGN( index_ch, fasta_xc_ch )
+
+            // if align junction
+            if ( params.align_junction ) {
+
+                // check to see if junction exists
+                if ( tailor_junction_exists ){
+
+                    junc_index_ch = "${tailor_junction_index}/${junction_name}"
+                
+                } else {
+
+                    /// index junctions with tailor
+                    TAILOR_INDEX_JUNCTIONS( 
+                        params.junctions, 
+                        "${bowtie_junction_index}/${junction_name}", 
+                        junction_name)
+
+                    junc_index_ch = TAILOR_INDEX_JUNCTIONS.out.tailor_index
+                }
+
+                // tailor align junctions
+                TAILOR_ALIGN_JUNCTIONS( junc_index_ch, TAILOR_ALIGN.out.unmapped_fq_ch )
+
+                combine_bed_ch = TAILOR_ALIGN
+                    .out
+                    .ntm_ch
+                    .join( TAILOR_ALIGN_JUNCTIONS.out.ntm_ch )
+                    
                 COMBINE_GENOME_JUNC_BED( combine_bed_ch )
 
                 combined_bed_ch = COMBINE_GENOME_JUNC_BED
@@ -342,16 +450,19 @@ workflow {
                     .bed
                     .join( fasta_xc_ch )
 
-        } else {
+            } else {
 
-            combined_bed_ch = BOWTIE_ALIGN_GENOME
-                .out
-                .genome_aligned_bed
-                .join ( fasta_xc_ch )
-
+                combined_bed_ch = TAILOR_ALIGN
+                    .out
+                    .ntm_ch
+                    .join ( fasta_xc_ch )
+            }
         }
 
-        if ( params.filter_bed ){
+        /*
+        * Filter bed
+        */
+        if ( params.filter_bed ) {
             
             REMOVE_CONTAMINANTS_BED( combined_bed_ch, params.filter_bed )
             process_bed_ch = REMOVE_CONTAMINANTS_BED.out.bed
@@ -362,36 +473,75 @@ workflow {
 
         }
 
-        PROCESS_ALIGNMENT( process_bed_ch, bowtie_chrom_sizes )
-        
-        alignment_logs_ch = PROCESS_ALIGNMENT
-                                .out
-                                .alignment_logs
-                                .collect()
+        /* 
+        * Process alignment 
+        */
+        if ( params.primary_aligner == 'bowtie' ) {
+
+            PROCESS_ALIGNMENT( process_bed_ch, chrom_sizes )
+
+        } else {
+
+            TAILOR_PROCESS_ALIGNMENT( process_bed_ch, chrom_sizes )
+
+        }
+
+        /* 
+        * combine alignment logs 
+        */
+        if ( params.primary_aligner == 'bowtie' ){
+
+            alignment_logs_ch = PROCESS_ALIGNMENT
+                        .out
+                        .alignment_logs
+                        .collect()
+
+        } else {
+
+            alignment_logs_ch = TAILOR_PROCESS_ALIGNMENT
+                        .out
+                        .alignment_logs
+                        .collect()
+
+        }
 
         RBIND_ALIGNMENT_LOG( params.outprefix, alignment_logs_ch )
 
-        /* 
-        * make table with chrom, start, end, seq, strand, sample1_rpm, sample2_rpm...... this takes a lot of comp. time and memory
-        */
-        //BOWTIE_ALIGNMENT_MASTER_TABLE( params.outprefix, BOWTIE_ALIGN_GENOME.out.bowtie_rpm.collect() )
-        
         /*
         * Counter
         */
         if ( params.features ) {
 
-            counter_input_ch = PROCESS_ALIGNMENT.out.channel_ntm
+            if ( params.primary_aligner == 'bowtie' ) {
 
-            COUNT_FEATURES(
-                params.features,
-                params.bed, 
-                counter_input_ch
-                )
+                counter_input_ch = PROCESS_ALIGNMENT.out.channel_ntm
 
-            norm_consts_ch = COUNT_FEATURES.out.normalization_constants
+                COUNT_FEATURES(
+                    params.features,
+                    params.bed, 
+                    counter_input_ch
+                    )
+
+                norm_consts_ch = COUNT_FEATURES.out.normalization_constants
             
-            genomic_counts_ch = COUNT_FEATURES.out.counts
+                genomic_counts_ch = COUNT_FEATURES.out.counts
+
+            } else {
+
+                counter_input_ch = TAILOR_PROCESS_ALIGNMENT.out.channel_ntm
+
+                TAILOR_COUNT_FEATURES(
+                    params.features,
+                    params.bed, 
+                    counter_input_ch,
+                    params.genome
+                    )
+
+                norm_consts_ch = TAILOR_COUNT_FEATURES.out.normalization_constants
+            
+                genomic_counts_ch = TAILOR_COUNT_FEATURES.out.counts
+
+            }
 
         } else {
 
@@ -405,34 +555,80 @@ workflow {
         norm_consts_ch = GET_TOTAL_READS.out.normalization_constants
         
         genomic_counts_ch = Channel.empty()
+
     }
 
     /*
-     * Transcripts
+     * define post-alignment input ch with sample, fasta, norm_consts
      */
+    post_alignment_input_ch = fasta_xc_ch.join(norm_consts_ch)
+
+    /*
+    * Transcripts
+    */
     if (params.transcripts) {
 
-        INDEX_TRANSCRIPTS( params.transcripts )
+        if ( params.primary_aligner == 'bowtie' ){
 
-        transcripts_input_ch = fasta_xc_ch.join(norm_consts_ch)
+            INDEX_TRANSCRIPTS( params.transcripts )
 
-        TRANSCRIPTS(params.transcripts, transcripts_input_ch, INDEX_TRANSCRIPTS.out.transcript_index_path_ch)
+            transcripts_input_ch = fasta_xc_ch.join(norm_consts_ch)
 
-        transcript_counts_ch = TRANSCRIPTS.out.counts
+            TRANSCRIPTS(params.transcripts, post_alignment_input_ch, INDEX_TRANSCRIPTS.out.transcript_index_path_ch)
+
+            transcript_counts_ch = TRANSCRIPTS.out.counts
+        
+        } else {
+
+            INDEX_TRANSCRIPTS_TAILOR( params.transcripts )
+
+            transcripts_input_ch = fasta_xc_ch.join(norm_consts_ch)
+
+            TAILOR_TRANSCRIPTS(params.transcripts, post_alignment_input_ch, INDEX_TRANSCRIPTS_TAILOR.out.transcript_index_path_ch)
+
+            transcript_counts_ch = TAILOR_TRANSCRIPTS.out.counts
+
+        }
         
     } else {
 
         transcript_counts_ch = Channel.empty()
     
     }
-    
+
     /*
-     * Combine genomic and transcripts counts
+     * tRNA alignment pipelines
      */
-    if (params.features || params.transcripts ) {
+    if ( params.tRNA_pipeline ) {
+
+        tRNA_fasta = file("${params.tRNA_reference}")
+
+        tRNA_name = "${tRNA_fasta.baseName}"
+
+        tRNA_index = "${params.index}/transcripts/${tRNA_name}"
+
+        INDEX_TRNA( params.tRNA_reference, tRNA_index )
+
+        ALIGN_TRNA( INDEX_TRNA.out.tRNA_sequence_index_path_ch, post_alignment_input_ch)
+
+        tRNA_counts_ch = ALIGN_TRNA.out.counts
+
+    } else {
+
+        tRNA_counts_ch = Channel.empty()
+
+    }
+
+
+
+    /*
+    * Combine genomic and transcripts counts
+    */
+    if (params.features || params.transcripts || params.tRNA_pipeline ) {
 
         counts_ch = genomic_counts_ch
             .mix( transcript_counts_ch )
+            .mix( tRNA_counts_ch )
             .groupTuple()
             .unique()
 
@@ -472,10 +668,10 @@ workflow {
                 .flatten()
         }
     }
-    
+
     /*
-     * Differential gene expression analysis
-     */
+    * Differential gene expression analysis
+    */
     if (params.dge) {
 
         /*
@@ -507,8 +703,9 @@ workflow {
 
     /*
      * Tailor pipeline
+     * will only run if tailor == true, features and bed == 2 and primary aligner is bowtie
      */
-    if (params.tailor && params.features && params.bed && params.align_genome){
+    if (params.tailor && params.features && params.bed && params.align_genome && params.primary_aligner == 'bowtie'){
 
         /*
          * Check if tailor index is build

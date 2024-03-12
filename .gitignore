@@ -1,3 +1,11 @@
+# fasta file
+*.fa
+*bwt
+*.sam
+*.bam
+*.bai
+test_tRNA_pipeline/
+
 # Byte-compiled / optimized / DLL files
 index/
 singularity/ 

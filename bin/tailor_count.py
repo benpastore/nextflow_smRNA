@@ -66,6 +66,10 @@ def intersect_to_best(input, output) :
 ##################################################
 # Class of features
 
+def getOverlap(a, b):
+    return max(0, min(a[1], b[1]) - max(a[0], b[0]))
+
+
 class Features() :
 
     def __init__(self, alignment, annotation, features, norm_constants, outprefix, fasta) : 
@@ -86,8 +90,9 @@ class Features() :
     def intersect(self) :
 
         self._intersect = f"{self._outprefix}.intersect"
-        cmd = f"bedtools intersect -wo -a {self._annotation} -b {self._alignment} > {self._intersect}"
-        
+        #cmd = f"bedtools intersect -wo -a {self._annotation} -b {self._alignment} > {self._intersect}"
+        cmd = f"bedtools intersect -loj -a {self._alignment} -b {self._annotation} > {self._intersect}"
+
         if not os.path.exists(self._intersect) : 
             os.system(cmd)
             #intersect_to_best("tmp", self._intersect)
@@ -119,89 +124,104 @@ class Features() :
         of selection will be added to `winners` list. This list will be turned into a pandas dataframe 
         and then will be used for normalization.
         """
-
+        
+        failures = f"{self._outprefix}.failFilter.bed"
+        op_failures = open(failures, 'w')
+        
         hits = []
         counter = {}
         with open(self._intersect, 'r') as f : 
             for line in f : 
 
                 info = line.strip().split("\t")
+                read_chrom = info[0]
+                read_start = int(info[1])
+                read_end = int(info[2])
+                read_seq = info[3]
+                read_count = float(info[4])
+                read_strand = str(info[5])
+                read_tail = str(info[6])
+                read_multimap = int(info[7])
+                ref_chrom = str(info[8])
+                ref_start = int(info[9])
+                ref_end = int(info[10])
+                ref_source = str(info[11])
+                ref_feature = str(info[12])
+                ref_strand = str(info[13])
+                ref_gene = str(info[14])
+                ref_biotype = str(info[15])
+                ref_class = str(info[16])
 
-                source = 3
-                feature = 4
-                ref_strand = 5
-                gene = 6
-                #seq = #7
-                #locus = #8
-                biotype = 7 #9
-                Class = 8 #10
-                sequence = 12 #14
-                strand = 14 #16
-                tail = 15 #17
-                multimap = 16 #18
-                match = 17 #19
-
+                overlap = getOverlap([read_start, read_end], [ ref_start, ref_end])
                 mismatch = 0
+                orientation = "sense" if ref_strand == read_strand else "anti"
 
-                orientation = "sense" if info[ref_strand] == info[strand] else "anti"
-
-                if info[strand] == "+" and orientation == "sense" : 
-                    distance = int(info[10]) - int(info[1])
-                elif info[strand] == "-" and orientation == "sense" : 
-                    distance = int(info[2]) - int(info[11])
+                if read_strand == "+" and orientation == "sense" : 
+                    distance = read_start - ref_start
+                elif read_strand == "-" and orientation == "sense" : 
+                    distance = ref_end - read_end
                 else : 
                     distance = 0
-
-                selector = ( 
-                    info[source], 
-                    info[feature], 
-                    info[biotype], 
-                    info[Class],
-                    info[gene].split(','),
-                    #(info[gene], info[seq], info[locus]),
-                    orientation, 
-                    str(info[sequence][0]), 
-                    len(info[sequence])-len(info[tail]),
-                    (int(info[match])),
-                    distance,
-                    int(info[multimap]),
-                    mismatch
-                    )
                 
+                classes = tuple(ref_class.split(","))
+
+                selector = (
+                    ref_source, 
+                    ref_feature, 
+                    ref_biotype, 
+                    classes, 
+                    ref_gene.split(","), 
+                    orientation, 
+                    read_seq[0], 
+                    len(read_seq) - len(read_tail), 
+                    overlap, 
+                    distance, 
+                    mismatch
+                )
+
                 recorder = (
-                    info[source], 
-                    info[feature], 
-                    info[biotype], 
-                    "sense" if info[ref_strand] == info[strand] else "anti", 
-                    str(info[sequence][0])
-                    )
-
-                for x,y in itertools.product( [selector], self._feature_selectors ) :
-                    if selector_match(x,y[0]) :
-                        if filter_tails(info[sequence], info[tail], info[9], int(info[10]), int(info[11]), info[strand], self._records, 4) :
-                            hits.append(
-                                    [ 
-                                    info[9], 
-                                    int(info[10]),
-                                    int(info[11]), #+len(info[tail]) 
-                                    info[12], 
-                                    float(info[13]), 
-                                    info[14], 
-                                    "sense" if info[ref_strand] == info[strand] else "anti", 
-                                    info[gene], 
-                                    info[biotype], 
-                                    info[8], 
-                                    info[tail],
-                                    int(info[match])
-                                    ] + [ y[1] ] + [ y[2] ]
-                            )
-                            
-                            if recorder in counter.keys() : 
-                                counter[recorder] += float(info[13])
-                            else :
-                                counter[recorder] = float(info[13])
+                    ref_source, 
+                    ref_feature, 
+                    ref_biotype, 
+                    orientation, 
+                    read_seq[0]
+                )
+                if not ref_chrom == "." : 
+                    for x,y in itertools.product( [selector], self._feature_selectors ) :
+                        if selector_match(x,y[0]) :
+                            if filter_tails(read_seq, read_tail, read_chrom, read_start, read_end, read_strand, self._records, 4) :
+                                
+                                hits.append(
+                                        [
+                                            read_chrom, 
+                                            read_start, 
+                                            read_end, 
+                                            read_seq, 
+                                            read_count, 
+                                            read_strand,
+                                            orientation,
+                                            ref_gene, 
+                                            ref_biotype, 
+                                            ref_class, 
+                                            read_tail, 
+                                            overlap
+                                        ] + [ y[1] ] + [ y[2] ]
+                                )
+                                
+                                if recorder in counter.keys() : 
+                                    counter[recorder] += float(read_count)
+                                else :
+                                    counter[recorder] = float(read_count)
+                            #else : 
+                           #     op_failures.write(f"{read_chrom}\t{read_start}\t{read_end}\t{read_seq}\t{read_count}\t{read_strand}\t{read_tail}\t{ref_gene}\tfailed_at_tail_filter\n")
+                       # else : 
+                       #     op_failures.write(f"{read_chrom}\t{read_start}\t{read_end}\t{read_seq}\t{read_count}\t{read_strand}\t{read_tail}\t{ref_gene}\tfailed_at_selector_match\n")
+              #  else : 
+             #       op_failures.write(f"{read_chrom}\t{read_start}\t{read_end}\t{read_seq}\t{read_count}\t{read_strand}\t{read_tail}\t{ref_gene}\tnot_assigned_to_feature\n")
+                                
         f.close()
-
+        op_failures.close()
+        
         # make counter an instance of the class
         self._counter = counter
 
@@ -223,11 +243,6 @@ class Features() :
         # change name of count_nfm to count
         bed_final.columns = ['chrom', 'start', 'end', 'seq', 'count', 'strand', 'orientation', 'gene', 'biotype', 'class', 'feature', 'rank', 'overlap']
 
-        # split gene into gene_name, seq_id, locus_id
-        #bed_final[['gene_name', 'seq_id', 'locus_id']] = pd.DataFrame(bed_final['gene'].tolist(), index=bed_final.index)
-        
-        # remove `gene` column
-        #self._bed_final = bed_final.drop(['gene'], axis = 1)
         self._bed_final = bed_final
 
     def combine_counts(self) : 
@@ -236,13 +251,13 @@ class Features() :
         Combine counts by gene, biotype, class, feature, tail
         """
 
-        self._counts = self._bed_final.groupby( ['gene','biotype', 'class', 'tail', 'feature'] )['count'].sum().reset_index()
+        self._counts = self._bed_final.groupby(['gene','biotype', 'class', 'feature'])['count'].sum().reset_index()
 
     def normalize_counts(self) :
 
         """
         Normalize counts per gene as set forth by the normalization constants features
-        """ 
+        """
         
         if self._normalize : 
             self._normalization_factors = parse_normalization_constants(self._norm_constants)
@@ -261,49 +276,13 @@ class Features() :
 def get_args() : 
 
     """Parse command line parameters from input"""
-
     parser = argparse.ArgumentParser(add_help=True)
-
-    parser.add_argument(
-        "-i", 
-        "--input", 
-        type = str, 
-        required = True,
-        help="BED format file (chrom, start, end, seq, count, strand). Tab delimmited. In pipeline count it normalized to number of times mapped.")
-
-    parser.add_argument(
-        "-a", 
-        "--annotation", 
-        type = str, 
-        required = True)
-
-    parser.add_argument(
-        "-f", 
-        "--features", 
-        type = str, 
-        required = True)
-    
-    parser.add_argument(
-        "-n",
-        "--normalize",
-        type = str,
-        required=False
-    )
-
-    parser.add_argument(
-        "-o",
-        "--outprefix",
-        type = str,
-        required=True
-    )
-
-    parser.add_argument(
-        "-g",
-        "--fasta",
-        type = str,
-        required=True
-    )
-
+    parser.add_argument("-i", "--input", type = str, required = True, help="BED format file (chrom, start, end, seq, count, strand). Tab delimmited. In pipeline count it normalized to number of times mapped.")
+    parser.add_argument("-a", "--annotation", type = str, required = True)
+    parser.add_argument("-f", "--features", type = str, required = True)
+    parser.add_argument("-n", "--normalize", type = str, required = False)
+    parser.add_argument("-o", "--outprefix", type = str, required = True)
+    parser.add_argument("-g", "--fasta", type = str, required = True)
     return parser.parse_args()
 
 ##################################################
@@ -311,12 +290,10 @@ def get_args() :
 def main() : 
 
     args = get_args()
-
     counter = Features(args.input, args.annotation, args.features, args.normalize, args.outprefix, args.fasta)
     counter.intersect()
     counter.features()
     counter.select_matching()
-    #counter.combine_counts()
     counter.normalize_counts()
 
 ##################################################
