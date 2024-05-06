@@ -184,7 +184,7 @@ class Features() :
                     else : 
                         distance = 0
 
-                    classes = tuple(ref_class.split(","))
+                    classes = [ i for i in ref_class.split(",") ]
                     
                     selector = ( 
                         ref_source.split(","),
@@ -200,6 +200,7 @@ class Features() :
                         int(read_multimap),
                         int(read_mismatch)
                         )                    
+
                     recorder = (
                         ref_source, 
                         ref_feature, 
@@ -207,12 +208,9 @@ class Features() :
                         orientation, 
                         str(read_seq[0]))
 
-                    print(selector)
                     for x,y in itertools.product( [selector], self._feature_selectors ) :
                         if selector_match(x,y[0]) :
-                            print(y[1])
-                            
-                            print("True")
+
                             hits.append([
                                 read_chrom, read_start, read_end, read_seq, read_count, read_strand, orientation, ref_gene, ref_biotype, ref_class, overlap
                                 ] + [ y[1] ] + [ y[2] ])
@@ -245,7 +243,7 @@ class Features() :
                     #print(f'{tracker} of {total_lines} ({ round(( (tracker)/(total_lines) )*100,2) }%) lines processed', end='\r')  
 
         f.close()
-
+        print(self._normalization_factors)
         print("Done iterating through file...")
         # make counter an instance of the class
         self._counter = counter

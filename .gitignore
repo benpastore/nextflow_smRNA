@@ -5,6 +5,10 @@
 *.bam
 *.bai
 test_tRNA_pipeline/
+tailor_index/
+tailor_index/*
+combine_seq_lanes/
+combine_seq_lanes/*
 
 # Byte-compiled / optimized / DLL files
 index/

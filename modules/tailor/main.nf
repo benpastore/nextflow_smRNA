@@ -28,7 +28,6 @@ process TAILOR_INDEX {
 
     [ ! -d ${name} ] && mkdir -p ${name}
 
-    # bowtie
     ${params.bin}/tailor_v11 build -i ${genome} -p ${name}/${name}
 
     samtools faidx ${genome}
@@ -341,85 +340,26 @@ process TAILOR_RUN {
     """
 }
 
-process TAILOR_FILTER {
+process INDEX_TAILOR_TRANSCRIPTS {
 
-    label 'medium'
+    publishDir "$params.index/tailor_transcripts", mode : 'copy', pattern : "*bwt"
+    publishDir "$params.index/tailor_transcripts", mode : 'copy', pattern : "*sizes"
 
-    publishDir "$params.results/tailor", mode : 'copy', pattern : "*tsv"
 
     input :
-        val directory
-        val condition
+        val transcripts
 
-    output :
-        path("*tailor.bed")
-        path("*tsv")        
-
-    script :
-    """
-    #!/bin/bash
-
-    source activate smrnaseq
-
-    # MUST map sense and be unique mapper
-
-    name=\$(basename $fastq .fq)
-    bed=\$name.aligned.v0.m1.tailor.bed
-    counts=\$name.aligned.v0.m1.tailor
+    output : 
+        path("*")
+        val("$params.index/tailor_transcripts"), emit : transcript_index_path_ch
     
-    ${params.bin}/tailor_v11 map \\
-        -i ${fastq} \\
-        -p ${talor_index} \\
-        -n ${task.cpus} \\
-        2> tailor.log | \\
-    tee aligned.sam | \\
-    ${params.bin}/tailor_sam_to_bed | \\
-    awk -v num=\$nTag -F'\\t' -v OFS="\\t" '{
-        if (\$8!="*")
-        {
-            split(\$4,a,":")
-            
-            print \$1,\$2,\$3,a[1],a[2]/\$5,\$6,\$8,\$5
-
-        }
-    }' > \$bed
-
-    # Count reads
-    python3 ${params.bin}/tailor_count.py \\
-        -i \$bed \\
-        -a ${reference_annotation} \\
-        -f ${features} \\
-        -n ${normalization_constants} \\
-        -o \$counts \\
-        -g ${genome}
-
-    """
-}
-
-process COMBINE_TAILOR_COUNTS {
-
-    label 'low'
-
-    publishDir "$params.results/counts", mode : 'copy', pattern : "*tsv"
-
-    input :
-        tuple val(sampleID), val(counts), val(tailed_counts)
-
-    output :
-        path("*tsv")
-
-    script :
+    script : 
     """
     #!/bin/bash
 
     source activate smrnaseq
 
-    name=\$(basename ${count} .tsv)
-    outname=\$name.counts.plus.tailed.tsv
+    python3 ${params.bin}/index_transcripts_tailor.py --transcripts ${transcripts} --tailor /fs/ess/PCON0160/ben/pipelines/nextflow_smRNA/bin/tailor_v11
 
-    python3 ${params.bin}/combine_counts.py \\
-        -i ${counts},${tailed_counts} \\
-        -o \$outname
     """
-
 }

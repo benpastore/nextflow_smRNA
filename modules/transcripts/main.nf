@@ -24,16 +24,14 @@ process INDEX_TRANSCRIPTS {
 
 process INDEX_TRANSCRIPTS_TAILOR {
 
-    publishDir "$params.index/transcripts", mode : 'copy', pattern : "*bwt"
-    publishDir "$params.index/transcripts", mode : 'copy', pattern : "*sizes"
-
+    publishDir "$params.index/tailor_transcripts", mode : 'copy', pattern : "*"
 
     input :
         val transcripts
 
     output : 
         path("*")
-        val("$params.index/transcripts"), emit : transcript_index_path_ch
+        val("$params.index/tailor_transcripts"), emit : transcript_index_path_ch
     
     script : 
     """
@@ -104,11 +102,9 @@ process TRANSCRIPTS {
 
 process TAILOR_TRANSCRIPTS {
 
-    errorStrategy 'ignore'
-    //maxRetries 3
     label 'high' 
 
-    publishDir "$params.results/transcripts", mode : 'copy', pattern : "*.tsv"
+    publishDir "$params.results/tailor_transcripts/files", mode : 'copy', pattern : "*.tsv"
 
     input : 
         val transcripts
@@ -116,33 +112,59 @@ process TAILOR_TRANSCRIPTS {
         val transcript_index_path
     
     output : 
-        tuple val(sampleID), path("*transcripts.counts.tsv"), emit : counts
+        path("*transcripts.bed.tsv"), emit : counts
         path("*.transcripts.counts.tsv"), emit : master_table_input
         path("*.transcripts.bed.tsv"), emit : transcript_bed_ch
 
     script : 
     mismatch = params.mismatch || params.mismatch == 0 ? "${params.mismatch}" : ''
     multimap = params.multimap ? "${params.multimap}" : ''
+    tailor_mismatch = params.tailor_mismatch ? "-allow_mismatch" : ''
     rpkm_command = params.rpkm ? "-rpkm" : ''
     """
     #!/bin/bash
 
     source activate smrnaseq
 
-    python3 ${params.bin}/uniq_fasta_to_uniq_fastq.py ${fasta} > \$fastq
+    python3 ${params.bin}/uniq_fasta_to_uniq_fastq.py ${fasta} > fastq
 
     name=\$(basename $fasta .fa)
     out=\$name.v${mismatch}.m${multimap}.transcripts
 
-    python3 ${params.bin}/align_transcripts_tailor.py -f \$fastq \\
-        -t ${params.transcripts} \\
+    python3 ${params.bin}/align_transcripts_tailor.py \\
+        -f fastq \\
+        -t ${transcripts} \\
         -o \$out \\
         -n ${normalization} \\
         -v ${mismatch} \\
-        -m ${multimap} \\
-        -tailor ${params.bin}/tailor_v11 \\
+        -m ${multimap} --tailor "${params.bin}" \\
+        ${tailor_mismatch} \\
         -idx ${transcript_index_path} \\
         ${rpkm_command}
         
+    """
+}
+
+process RBIND_TAILOR_TRANSCRIPTS {
+
+    label 'low'
+
+    publishDir "$params.results/tailor_transcripts", mode : 'copy', pattern : "*.tsv"
+
+    input :
+        val name
+        val files
+    
+    output : 
+        path("*.tsv"), emit : tables
+
+    script : 
+    """
+    #!/bin/bash
+
+    source activate smrnaseq
+    
+    python3 ${params.bin}/rbind_tailor_transcripts.py -f "${files}" -o ${name}.counts.tsv
+
     """
 }

@@ -4,15 +4,20 @@ import argparse
 import os
 import pandas as pd 
 from bed_to_ntm import bed_to_ntm
+from tailor_match import filter_tails
+from Bio.Seq import Seq
+from Bio import SeqIO
 
-def align(ref, fasta, mism, multim, tailor_software) : 
+def align(ref, fasta, mism, multim, tailor_software, allow_mismatch) : 
 
+    print(ref)
     tmp = os.path.basename(fasta).replace(".fa", ".tmp")
-    cmd = f"{tailor_software} map -p {ref} -i {fasta} -n 25  > {tmp}.sam"
+    cmd = f"{tailor_software}/tailor_v11 map -p {ref} {allow_mismatch} -i {fasta} -n 25 | {tailor_software}/tailor_sam_to_bed > {tmp}.bed"
+    print(cmd)
     os.system(cmd)
 
     lines = ''
-    with open(f"{tmp}.sam") as f : 
+    with open(f"{tmp}.bed") as f : 
         for line in f : 
             info = line.strip().split("\t")
             chrom = info[0]
@@ -21,8 +26,8 @@ def align(ref, fasta, mism, multim, tailor_software) :
             seq = info[3].split(":")[0]
             count = float(info[3].split(":")[1])
             strand = info[5]
-            tail = info[6]
-            nmap = float(info[7])
+            tail = info[7]
+            nmap = float(info[4])
             ntm = count / nmap
 
             lines += f"{chrom}\t{start}\t{end}\t{seq}\t{ntm}\t{strand}\t{tail}\t{nmap}\n"
@@ -41,7 +46,7 @@ class Transcripts() :
     useful for implementation in pipelines to align smRNA reads to miRBase & repBase annotation
     """ 
 
-    def __init__(self, fasta, transcripts, normalization, outname, mismatch, multimap, index_path, build_index, normalize_rpkm, tailor_path) : 
+    def __init__(self, fasta, transcripts, normalization, outname, mismatch, multimap, index_path, build_index, normalize_rpkm, tailor_path, allow_mismatch) : 
 
         self._fasta = fasta
         self._transcripts = transcripts 
@@ -52,6 +57,7 @@ class Transcripts() :
         self._build_index = build_index
         self._normalize_rpkm = True if normalize_rpkm else False
         self._tailor_path = tailor_path
+        self._allow_mismatch = "-v " if allow_mismatch else ""
 
         if self._normalization is not None : 
             self._normalization_features = {}
@@ -61,7 +67,7 @@ class Transcripts() :
                     self._normalization_features[info[0]] = float(info[1])
         
         self._index_path = index_path if index_path is not None else os.path.join( os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "index/transcripts")
-    
+
     def process(self) : 
         
         gene_ids,  seq_ids, locus_ids, biotypes, Classes, features, counts, starts, ends, strands, seqs , tails, rawtails = [], [], [], [], [], [], [], [], [], [], [], [], []
@@ -110,7 +116,9 @@ class Transcripts() :
 
                     # align
 
-                    ntm = align(idx, self._fasta, self._mismatch, self._multimap, self._tailor_path)
+                    ntm = align(idx, self._fasta, self._mismatch, self._multimap, self._tailor_path, self._allow_mismatch)
+
+                    records = SeqIO.to_dict(SeqIO.parse(reference, 'fasta'))
 
                     # process alignment
                     with open(ntm, 'r') as f : 
@@ -122,9 +130,9 @@ class Transcripts() :
                             seq = info[3]
                             count = float(info[4])
                             strand = info[5]
-                            tailtmp = int(info[6])
+                            tailtmp = str(info[6])
                             tail = list(set(tailtmp))[0] if len(list(set(tailtmp))) == 1 else "Other"
-                            read_multimap = int(info[7])
+                            read_multimap = float(info[7])
                             read_mismatch = 0
 
                             orientation = "sense" if strand == "+" else "anti" 
@@ -135,21 +143,34 @@ class Transcripts() :
                             aln_selector = (seq_nt, seq_len, orientation, read_multimap)
 
                             if all( True if a in b else True if "*" in b else False for a,b in zip(aln_selector,rule_selector) ) :
-                                gene_ids.append(gene)
-                                biotypes.append(biotype)
-                                Classes.append(Class)
-                                features.append(feature)
-                                counts.append(count)
-                                
-                                starts.append(start)
-                                ends.append(end)
-                                strands.append(strand)
-                                seqs.append(seq)
-                                tails.append(tail)
-                                rawtails.append(tailtmp)
-                                
-                            else : 
-                                pass
+                                if tail == "*" :
+                                    gene_ids.append(gene)
+                                    biotypes.append(biotype)
+                                    Classes.append(Class)
+                                    features.append(feature)
+                                    counts.append(count)
+                                    
+                                    starts.append(start)
+                                    ends.append(end)
+                                    strands.append(strand)
+                                    seqs.append(seq)
+                                    tails.append(tail)
+                                    rawtails.append(tailtmp)
+                                else : 
+                                    if filter_tails(seq, tailtmp, gene, start, end, "+", records) : 
+                                        if read_multimap == 1 : 
+                                            gene_ids.append(gene)
+                                            biotypes.append(biotype)
+                                            Classes.append(Class)
+                                            features.append(feature)
+                                            counts.append(count)
+                                            
+                                            starts.append(start)
+                                            ends.append(end)
+                                            strands.append(strand)
+                                            seqs.append(seq)
+                                            tails.append(tail)
+                                            rawtails.append(tailtmp) 
                     f.close()
         q.close()
                             
@@ -217,7 +238,8 @@ def get_args() :
     parser.add_argument("-m", "--multimap", type = str, required=True, help='alignment multimap')
     parser.add_argument("-idx", "--index_path", type = str, required=True, help='path to where transcript fastas are indexed')
     parser.add_argument("-index", required=False, action='store_true', help='indicates to build index')
-    parser.add_argument("-tailor", required=False, action='store_true', help='indicates to build index')
+    parser.add_argument("-allow_mismatch", required = False, action = 'store_true', help = 'indicates to enable -v option in tailor (allow mismatch in middle of read)')
+    parser.add_argument("--tailor", required=True, help='path to tailor software')
     parser.add_argument("-rpkm", action = 'store_true', required=False)
 
     return parser.parse_args()
@@ -226,7 +248,7 @@ def main() :
 
     args = get_args()
 
-    run = Transcripts(args.fasta, args.transcripts, args.normalization, args.outname, args.mismatch, args.multimap, args.index_path, args.index, args.rpkm, args.tailor)
+    run = Transcripts(args.fasta, args.transcripts, args.normalization, args.outname, args.mismatch, args.multimap, args.index_path, args.index, args.rpkm, args.tailor, args.allow_mismatch)
     run.process()
 
 if __name__ == "__main__" : 

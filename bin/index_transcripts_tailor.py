@@ -6,7 +6,7 @@ import os
 def index(ref, path_to_tailor) :
 
     index_prefix = os.path.basename(ref).replace(".fasta", "").replace(".fa","").replace(".ref", "")
-    cmd = f"{path_to_tailor} build -i {ref} -p {index_prefix}" 
+    cmd = f"{path_to_tailor} build -i {ref} -p {index_prefix} -f " 
     os.system(cmd)
     
     chrom_sizes = os.path.basename(ref).replace(".fasta", "").replace(".fa","").replace(".ref", "")

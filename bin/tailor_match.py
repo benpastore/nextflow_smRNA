@@ -46,10 +46,8 @@ def filter_tails(sequence, tail, chrom, start, end, strand, records, N = False) 
         return True
     
     else :
-        
         if strand == "+" :
             ref = str(records[chrom][start : end + tail_length].seq)
-        
         else : 
             fwd = records[chrom][start - tail_length : end ].seq
             seq_obj = Seq(fwd)

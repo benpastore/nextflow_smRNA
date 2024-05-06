@@ -25,6 +25,7 @@ process INDEX_TRNA {
 
 process ALIGN_TRNA {
 
+    errorStrategy 'ignore'
     label 'low'
 
     publishDir "$params.results/tRNA_alignment/bed", mode : 'copy', pattern : "*.bed.tsv"
