@@ -69,6 +69,19 @@ def intersect_to_best(input, output) :
 def getOverlap(a, b):
     return max(0, min(a[1], b[1]) - max(a[0], b[0]))
 
+def define_tailgroup(seq) : 
+
+    if len(set(seq)) == 1 : 
+        if list(set(seq))[0] == "A" : 
+            return "A"
+        elif list(set(seq))[0] == "G" : 
+            return "G"
+        elif list(set(seq))[0] == "C" : 
+            return "C" 
+        else : 
+            return "T"
+    else : 
+        return "N"
 
 class Features() :
 
@@ -236,6 +249,7 @@ class Features() :
         bed['number_feature_mapped'] = bed.groupby( ['chrom', 'start', 'end', 'seq'] )['seq'].transform('size')
         bed['count_nfm'] = bed.apply(lambda row : row['count'] / row['number_feature_mapped'], axis = 1)
         bed['sequence'] = bed.apply(lambda row: (f'{row["seq"]}:{row["tail"]}'), axis = 1)
+        bed['tail_group'] = bed.apply(lambda row: define_tailgroup(row['tail']), axis = 1)
         
         # select desired columns
         bed_final = bed[['chrom', 'start', 'end', 'sequence', 'count_nfm', 'strand', 'orientation', 'gene', 'biotype', 'class', 'feature', 'rank', 'overlap']]
@@ -243,6 +257,7 @@ class Features() :
         # change name of count_nfm to count
         bed_final.columns = ['chrom', 'start', 'end', 'seq', 'count', 'strand', 'orientation', 'gene', 'biotype', 'class', 'feature', 'rank', 'overlap']
 
+        self._counts = bed.groupby(['gene', 'biotype', 'class', 'feature', 'tail_group']).agg( count = ('count', 'sum')).reset_index()
         self._bed_final = bed_final
 
     def combine_counts(self) : 
@@ -264,10 +279,10 @@ class Features() :
 
             for k,v in self._normalization_factors.items() : 
                 if not v == 0 : 
-                    #self._counts[f'count_{k}_norm'] = self._counts.apply(lambda row : 1e6*(row['count']/v), axis = 1)
+                    self._counts[f'count_{k}_norm'] = self._counts.apply(lambda row : 1e6*(row['count']/v), axis = 1)
                     self._bed_final[f'count_{k}_norm'] = self._bed_final.apply(lambda row : 1e6*(row['count']/v), axis = 1)
     
-        #self._counts.to_csv(f"{self._outprefix}.counts.tsv", sep = "\t", index = False, header = True)
+        self._counts.to_csv(f"{self._outprefix}.counts.tsv", sep = "\t", index = False, header = True)
         self._bed_final.to_csv(f"{self._outprefix}.bed.tsv", sep = "\t", index = False, header = True)
 
 ##################################################

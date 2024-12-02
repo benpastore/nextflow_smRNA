@@ -2,12 +2,14 @@ process MERGE_BW {
 
     tag "${condition}_merge_bw"
 
-    label 'high'
+    label 'ucsc'
 
     publishDir "$params.results/merge_BigWig", mode: 'copy', pattern : "*.bw"
 
+    errorStrategy 'ignore'
+
     input : 
-        tuple val(sampleIDs), path(bws), val(condition)
+        tuple val(condition), path(bws)
         val chrom_sizes
 
     output : 
@@ -15,9 +17,7 @@ process MERGE_BW {
     
     script : 
     """
-    #!/bin/bash
-
-    source activate smrnaseq
+    #!/bin/bash 
 
     # make array with bigwigs 
     bws=(${bws.join(' ')})
@@ -39,5 +39,4 @@ process MERGE_BW {
     # convert bedGraph --> bigwig
     bedGraphToBigWig ${condition}.bedGraph.sorted ${chrom_sizes} ${condition}.bw
     """
-
 }

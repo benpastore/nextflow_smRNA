@@ -101,21 +101,19 @@ workflow parse_design {
         replicates_ch = DESIGN_INPUT
             .out
             .condition_ch
-            .splitCsv(header:true, sep:',')
-            .map { row -> [ row.simple_name, row.group ] }
+            .splitCsv(header:false, skip:1)
     
     emit : 
-        reads_ch = DESIGN_INPUT
-            .out
-            .fastq_ch
-            .splitCsv( header: ['condition', 'reads'], sep: ",", skip: 1)
-            .map{ row -> [ row.condition, row.reads ] }
+        reads_ch = reads_ch
 
-        replicates_ch = DESIGN_INPUT
+        replicates_ch = replicates_ch
+
+        dge_input = DESIGN_INPUT
             .out
             .condition_ch
-            .splitCsv(header:true, sep:',')
-            .map { row -> [ row.simple_name, row.group ] }
+            .splitCsv( header: ['sample', 'condition'], sep: ",", skip: 1)
+            .map{ row -> [ row.condition, row.sample ] }
+            .groupTuple()
 }
 
 workflow trim_galore {
@@ -152,7 +150,7 @@ workflow trim_umi {
         TRIM_UMI( data )
     
     emit : 
-        fasta = TRIM_GALORE.out.fasta
+        fasta = TRIM_UMI.out.fasta
     
 }
 
@@ -524,7 +522,7 @@ workflow tailor_align_transcripts {
         TAILOR_TRANSCRIPTS( transcripts, info, index )
 
     emit : 
-        counts = TAILOR_TRANSCRIPTS.out.counts
+        counts = TAILOR_TRANSCRIPTS.out.master_table_input
 
 }
 
@@ -551,7 +549,7 @@ workflow tailor_index {
         index = tailor_index_ch
 }
 
-workflow tailor_align {
+workflow tailor_pipeline {
 
     take : 
         genome
@@ -559,7 +557,6 @@ workflow tailor_align {
         features
         bed
         input
-
 
     main : 
         TAILOR_RUN(genome, index, features, bed, input)
@@ -577,6 +574,46 @@ workflow rbind_tailor_transcripts {
     
     emit : 
         table = RBIND_TAILOR_TRANSCRIPTS.out.tables
+
+}
+
+workflow merge_bws {
+
+    take : 
+        bws
+        cs
+    
+    main : 
+        MERGE_BW(bws, cs)
+
+}
+
+/*
+////////////////////////////////////////////////////////////////////
+Subworkflows
+////////////////////////////////////////////////////////////////////
+*/
+
+workflow average_bigwigs {
+
+    bowtie_index(params.genome, params.index)
+    cs = bowtie_index.out.chrom_sizes
+
+    parse_design( params.design ) 
+    reps = parse_design.out.replicates_ch
+
+    bws = Channel
+        .fromPath( "${params.bigwigs}/*.bw" )
+        .map { bw -> [ bw.SimpleName, bw] }
+    
+    map_samples = reps
+        .join(bws)
+    
+    map_group = map_samples
+        .groupTuple(by : 1)
+        .map{ it -> it[1,2]}
+
+    merge_bws(map_group, cs)
 
 }
 
@@ -632,7 +669,6 @@ workflow {
     if (params.contaminant) {
         remove_contaminant( params.contaminant, fastas )
     }
-
 
     // bowtie index and alignment 
     if ( params.align_genome ) {
@@ -703,12 +739,7 @@ workflow {
         /*
         * Parse comparisons file
         */
-        conditions = DESIGN_INPUT
-            .out
-            .condition_ch
-            .splitCsv( header: ['sample', 'condition'], sep: ",", skip: 1)
-            .map{ row -> [ row.condition, row.sample ] }
-            .groupTuple()
+        conditions = parse_design.out.dge_input
 
         comparisons = Channel
             .fromPath( "${params.dge}")
@@ -726,11 +757,13 @@ workflow {
 
     }
 
-    if (params.tailor && params.features && params.bed && params.align_genome) {
+    if (params.tailor && params.features && params.bed) {
 
         tailor_index(params.genome, params.index)
 
+        /*
         if (params.align_junction) {
+            
             tailor_input_ch = bowtie_junction_align
                 .out
                 .tailor_input
@@ -741,8 +774,11 @@ workflow {
                 .tailor_input
                 .join(norm_constants)
         }
+        */
 
-        tailor_align(params.genome, tailor_index.out.index, params.features, params.bed, tailor_input_ch)
+        tailor_input_ch = fastas.join(norm_constants)
+
+        tailor_pipeline(params.genome, tailor_index.out.index, params.features, params.bed, tailor_input_ch)
 
     }
 

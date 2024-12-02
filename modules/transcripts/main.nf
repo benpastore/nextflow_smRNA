@@ -1,5 +1,7 @@
 process INDEX_TRANSCRIPTS {
 
+    label 'medium'
+
     publishDir "$params.index/transcripts", mode : 'copy', pattern : "*bwt"
     publishDir "$params.index/transcripts", mode : 'copy', pattern : "*sizes"
 
@@ -23,6 +25,8 @@ process INDEX_TRANSCRIPTS {
 }
 
 process INDEX_TRANSCRIPTS_TAILOR {
+
+    label 'medium'
 
     publishDir "$params.index/tailor_transcripts", mode : 'copy', pattern : "*"
 
@@ -51,7 +55,7 @@ process TRANSCRIPTS {
     label 'high' 
 
     publishDir "$params.results/transcripts/bed", mode : 'copy', pattern : "*bed.tsv"
-    publishDir "$params.results/transcripts/bw", mode : 'copy', pattern : "*bw"
+    //publishDir "$params.results/transcripts/bw", mode : 'copy', pattern : "*bw"
     publishDir "$params.results/transcripts/counts", mode : 'copy', pattern : "*counts.tsv"
 
     input : 
@@ -63,7 +67,7 @@ process TRANSCRIPTS {
         tuple val(sampleID), path("*transcripts.counts.tsv"), emit : counts
         path("*.transcripts.counts.tsv"), emit : master_table_input
         path("*.transcripts.bed.tsv"), emit : transcript_bed_ch
-        path("*.bw")
+        //path("*.bw")
 
     script : 
     mismatch = params.mismatch || params.mismatch == 0 ? "${params.mismatch}" : ''
@@ -86,16 +90,16 @@ process TRANSCRIPTS {
         -idx ${transcript_index_path} \\
         ${rpkm_command}
 
-    cat \$out.bed.tsv |\\
-        grep -v "^gene" |\\
-        awk '{OFS="\\t"; print \$1,\$2,\$3,\$4,\$8,\$6}' |\\
-        sort-bed - > tmp.sorted
+    #cat \$out.bed.tsv |\\
+    #    grep -v "^gene" |\\
+    #    awk '{OFS="\\t"; print \$1,\$2,\$3,\$4,\$8,\$6}' |\\
+    #    sort-bed - > tmp.sorted
 
-    bedops --partition tmp.sorted |\\
-        bedmap --echo --sum --delim '\\t' - tmp.sorted |\\
-        awk -F '\\t' '{OFS="\\t"; print \$1,\$2,\$3,1*\$4}' > tmp.bg
+    #bedops --partition tmp.sorted |\\
+    #    bedmap --echo --sum --delim '\\t' - tmp.sorted |\\
+    #    awk -F '\\t' '{OFS="\\t"; print \$1,\$2,\$3,1*\$4}' > tmp.bg
 
-    ${params.bin}/bedGraphToBigWig tmp.bg chrom_sizes_combined \$out.bw
+    #${params.bin}/bedGraphToBigWig tmp.bg chrom_sizes_combined \$out.bw
         
     """
 }
@@ -112,7 +116,7 @@ process TAILOR_TRANSCRIPTS {
         val transcript_index_path
     
     output : 
-        path("*transcripts.bed.tsv"), emit : counts
+        path("*transcripts.bed.tsv"), emit : bed
         path("*.transcripts.counts.tsv"), emit : master_table_input
         path("*.transcripts.bed.tsv"), emit : transcript_bed_ch
 

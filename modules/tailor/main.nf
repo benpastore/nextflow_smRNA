@@ -66,9 +66,9 @@ process TAILOR_ALIGN {
 
     label 'high'
 
-    publishDir "$params.results/alignment/ntm", mode : 'copy', pattern : "*ntm"
-    publishDir "$params.results/alignment/bam", mode : 'copy', pattern : "*.bam"
-    publishDir "$params.results/alignment/bam", mode : 'copy', pattern : "*.bai"
+    publishDir "$params.results/tailor_align/ntm", mode : 'copy', pattern : "*ntm"
+    publishDir "$params.results/tailor_align/bam", mode : 'copy', pattern : "*.bam"
+    publishDir "$params.results/tailor_align/bam", mode : 'copy', pattern : "*.bai"
     //publishDir "$params.results/alignment/unmapped", mode : 'copy', pattern : "*.unmapped.fastq"
     //publishDir "$params.results/alignment/tailor/bed", mode : 'copy', pattern : "*bed.tsv"
     //publishDir "$params.results/alignment/tailor/counts", mode : 'copy', pattern : "*counts.tsv"
@@ -272,11 +272,13 @@ process TAILOR_RUN {
         val talor_index
         val features
         val reference_annotation
-        tuple val(sampleID), val(fastq), val(normalization_constants)
+        tuple val(sampleID), val(fasta), val(normalization_constants)
 
     output :
         path("*tailor*bed")
         path("*tsv")
+        path("*bam*")
+        path("*counts*")
         //val (sampleID), path("*.counts.tsv"), emit : tailor_counts_ch
 
 
@@ -297,15 +299,18 @@ process TAILOR_RUN {
 
     # MUST map sense and be unique mapper
 
-    name=${sampleID}  #\$(basename $fastq .fq)
+    name=${sampleID}  #\$(basename ${fasta} .fa)
     sam=\$name.sam
     bam=\$name.bam
     bed=\$name.aligned.v0.m1.tailor.bed
     counts=\$name.aligned.v0.m1.tailor
+    fastq=\$name.fastq
+
+    python3 ${params.bin}/uniq_fasta_to_uniq_fastq.py ${fasta} > \$fastq
     
     # analyze 3' nontemplated nucleotides
     ${params.bin}/tailor_v11 map \\
-        -i ${fastq} \\
+        -i \$fastq \\
         -p ${talor_index} \\
         -n ${task.cpus} \\
         2> tailor.log | \\
@@ -313,13 +318,13 @@ process TAILOR_RUN {
     ${params.bin}/tailor_sam_to_bed | \\
     awk '(\$5<=1)' | \\
     awk -v num=\$nTag -F'\\t' -v OFS="\\t" '{
-        if (\$8!="*")
-        {
-            split(\$4,a,":")
+        
+        #{
+        split(\$4,a,":")
 
-            print \$1,\$2,\$3,a[1],a[2]/\$5,\$6,\$8,\$5
+        print \$1,\$2,\$3,a[1],a[2]/\$5,\$6,\$8,\$5
 
-        }
+        #}
     }' > \$bed
 
     # sort sam file -> bam file

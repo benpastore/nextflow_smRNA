@@ -6,6 +6,7 @@ import os
 def index(ref) :
 
     index_prefix = os.path.basename(ref).replace(".fasta", "").replace(".fa","").replace(".ref", "")
+    print(index_prefix)
     cmd = f"bowtie-build --quiet {ref} {index_prefix}" 
     os.system(cmd)
     

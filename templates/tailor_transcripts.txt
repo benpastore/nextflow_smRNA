@@ -1,0 +1,9 @@
+Name	Biotype	Class	5'	Length	Strand	Mismatch	Multimap	5'_5'_dist	Fasta
+piRNA_ref	piRNA	piRNA	T	15-40	sense	0	1	0_2	/fs/ess/PCON0160/ben/genomes/c_elegans/WS279/piRNA.15nt_3p_extension.fa
+pre_miRNA_ref	miRNA	miRNA	*	15-40	sense	0	1	*	/fs/ess/PCON0160/ben/genomes/c_elegans/WS279/ce_ws279.miRNA.10nt3p.fa
+csRNA_ref	csRNA	csRNA	*	15-40	sense	0	1	0	/fs/ess/PCON0160/ben/genomes/c_elegans/WS279/csRNA.fa
+csr1_siRNA_ref	csr1_22G	csr1_22G	G;A	15-40	anti	0	1	*	/fs/ess/PCON0160/ben/projects/2024_July_disl2/csr_targets.fa
+prg1_siRNA_ref	prg1_22G	prg1_22G	G;A	15-40	anti	0	1	*	/fs/ess/PCON0160/ben/projects/2024_July_disl2/prg_targets.fa
+rebase_siRNA_ref	repbase_22G	repbase_22G	G;A	15-40	anti	0	1	*	/fs/ess/PCON0160/ben/genomes/RepBase28.06.fasta/celrep.ref
+risiRNA_ref	risiRNA	risiRNA	G;A	15-40	anti	0	10000	*	/fs/ess/PCON0160/ben/genomes/c_elegans/WS279/rRNA.fa
+wago22G_ref	wago_22G	wago_22G	G;A	15-40	anti	0	1	*	/fs/ess/PCON0160/ben/projects/2024_July_disl2/wago1_targets.fa

@@ -132,7 +132,7 @@ class Transcripts() :
                         for line in f : 
                             info = line.strip().split("\t")
                             gene = info[0]
-                            start = int(info[1])
+                            start = int(info[1]) - 1
                             end = int(info[2])
                             seq = info[3]
                             count = float(info[4])

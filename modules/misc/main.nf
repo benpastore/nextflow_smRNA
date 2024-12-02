@@ -4,6 +4,8 @@ process DESIGN_INPUT {
 
     label 'local'
 
+    container 'docker://benpasto/smrnaseq:latest'
+
     publishDir "$params.results/samples", mode : 'copy', pattern : "*csv"
 
     input : 
@@ -16,7 +18,7 @@ process DESIGN_INPUT {
     script : 
     """
     #!/bin/bash
-
+        
     source activate smrnaseq
     
     python3 ${params.bin}/process_design_input_smRNA.py -input ${design}

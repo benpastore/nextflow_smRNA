@@ -1,0 +1,5 @@
+Name	Biotype	Class	5'	Length	Strand	Mismatch	Multimap	Fasta
+RepBase	transposon	none	G;A	21-23	anti	0	1000	/fs/ess/PCON0160/ben/genomes/RepBase19.02.fasta/celrep.ref
+transcriptome	all_transcript	none	G;A	21-23	anti	0	1000	/fs/ess/PCON0160/ben/genomes/c_elegans/WS279/ce_ws279.linc.pseudo.pc.fa
+tRNA_reference	tRNA	none	*	*	*	3	1000	/fs/ess/PCON0160/ben/genomes/c_elegans/tRNA_scan/tRNA_sequences_fixed_header.fasta
+type2_piRNA	type2_piRNA	none	T	15-40	sense	0	1	/fs/ess/PCON0160/ben/projects/2024_July_disl2/running_pipeline/type2_yihui_redifine.fa

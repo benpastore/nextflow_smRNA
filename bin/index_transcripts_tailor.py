@@ -6,7 +6,8 @@ import os
 def index(ref, path_to_tailor) :
 
     index_prefix = os.path.basename(ref).replace(".fasta", "").replace(".fa","").replace(".ref", "")
-    cmd = f"{path_to_tailor} build -i {ref} -p {index_prefix} -f " 
+    print(index_prefix)
+    cmd = f"{path_to_tailor} build -i {ref} -p {index_prefix} -f "
     os.system(cmd)
     
     chrom_sizes = os.path.basename(ref).replace(".fasta", "").replace(".fa","").replace(".ref", "")
@@ -42,7 +43,8 @@ def main() :
         for line in f :
             if not line.startswith("Name") : 
                 info = line.strip().split("\t")
-                reference = info[8]
+                print(info)
+                reference = info[9]
                 print(f"Indexing {os.path.basename(reference)}")
 
                 index(reference, args.tailor)

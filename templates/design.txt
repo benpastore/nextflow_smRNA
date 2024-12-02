@@ -1,0 +1,5 @@
+Reads	Condition
+/fs/ess/PAS1473/deep_sequencing/2024_11_07_smRNA_seq/control_1.fastq.gz	control
+/fs/ess/PAS1473/deep_sequencing/2024_11_07_smRNA_seq/control_2.fastq.gz	control
+/fs/ess/PAS1473/deep_sequencing/2024_11_07_smRNA_seq/mutant_1.fastq.gz	mutant
+/fs/ess/PAS1473/deep_sequencing/2024_11_07_smRNA_seq/mutant_2.fastq.gz	mutant

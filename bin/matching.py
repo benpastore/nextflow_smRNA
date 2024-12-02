@@ -41,6 +41,7 @@ def read_features(features) :
         names = [ 'rule_name','source','feature','biotype','gene','Class','firstNT','length','match','strand','distance', 'multimap', 'mismatch', 'rank'],
         dtype=str, header = 0)
 
+    print(df)
     # 1. split feature params into tuples for searching
     for index,row in df.iteritems() :
         if not index == "rule_name" and not index == "rank" : 

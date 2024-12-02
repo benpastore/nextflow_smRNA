@@ -13,7 +13,6 @@ def align(ref, fasta, mism, multim, tailor_software, allow_mismatch) :
     print(ref)
     tmp = os.path.basename(fasta).replace(".fa", ".tmp")
     cmd = f"{tailor_software}/tailor_v11 map -p {ref} {allow_mismatch} -i {fasta} -n 25 | {tailor_software}/tailor_sam_to_bed > {tmp}.bed"
-    print(cmd)
     os.system(cmd)
 
     lines = ''
@@ -99,16 +98,27 @@ class Transcripts() :
                     
                     # strand oritentation
                     rule_orientation = info[5]
-                    reference = info[8]
 
                     # alignment settings 
                     mismatch = [ i for i in range(0, int(info[6])+1 ) ]
                     multimap = [ i for i in range(0, int(info[7])+1 ) ]
 
+                    # distance from 5' end
+                    dist_col = info[8]
+                    if dist_col == "*" : 
+                        dist = ["*"]
+                    elif "_" in dist_col : 
+                        m = int(dist_col.split("_")[0])
+                        M = int(dist_col.split("_")[1])
+                        dist = [ int(i) for i in range(m, M+1) ]
+                    else : 
+                        dist = [ int(dist_col) ]
+
                     # rule selector
-                    rule_selector = (nt, length, rule_orientation, multimap, mismatch)
+                    rule_selector = (nt, length, rule_orientation, multimap, dist)
                     
                     # index genome
+                    reference = info[9]
                     if self._build_index : 
                         idx = index(reference)
                     else : 
@@ -140,7 +150,7 @@ class Transcripts() :
                             seq_len = len(seq)
                             seq_nt = seq[0]
 
-                            aln_selector = (seq_nt, seq_len, orientation, read_multimap)
+                            aln_selector = (seq_nt, seq_len, orientation, read_multimap, start)
 
                             if all( True if a in b else True if "*" in b else False for a,b in zip(aln_selector,rule_selector) ) :
                                 if tail == "*" :
