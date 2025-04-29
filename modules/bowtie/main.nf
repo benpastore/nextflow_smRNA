@@ -122,15 +122,18 @@ process BOWTIE_ALIGN_GENOME {
     script : 
     mismatch_command = params.mismatch || params.mismatch == 0 ? "-v ${params.mismatch}" : ''
     multimap_command = params.multimap ? "-m ${params.multimap}" : ''
+    k_multimap_command = params.k_multimap ? "-k ${params.k_multimap}" : ''
     mismatch = params.mismatch || params.mismatch == 0 ? "${params.mismatch}" : ''
     multimap = params.multimap ? "${params.multimap}" : ''
+    k_multimap = params.k_multimap ? "${params.k_multimap}" : ''
+    additional_bowtie_commands = params.additional_bowtie_commands ? "${params.additional_bowtie_commands}" : ''
     """
     #!/bin/bash
 
     source activate smrnaseq
 
     name=\$(basename ${fasta} .fa)
-    id=\$name.genome.aligned.v${mismatch}.m${multimap}
+    id=\$name.genome.aligned.v${mismatch}.m${multimap}.k${k_multimap}
     bam=\$id.sorted.bam
     bai=\$id.sorted.bam.bai
     bed=\$id.bed
@@ -146,6 +149,7 @@ process BOWTIE_ALIGN_GENOME {
         --un \$id.unmapped.fa \\
         --best \\
         --strata \\
+        ${k_multimap_command} \\
         ${mismatch_command} \\
         ${multimap_command} \\
         -S > aligned.genome.sam 2> genome.log
@@ -271,14 +275,16 @@ process COMBINE_GENOME_JUNC_BED {
 
 process REMOVE_CONTAMINANTS_BED {
 
+     label 'low'
+
     publishDir "$params.results/alignment/filter", mode : 'copy', pattern : "*.filt.bed"
 
     input : 
-        tuple val(sampleID), path(bed), path(fasta)
+        tuple val(sampleID), path(bed)
         val(contaminant_bed)
 
     output : 
-        tuple val(sampleID), path("*.filt.bed"), path(fasta), emit : bed
+        tuple val(sampleID), path("*.filt.bed"), emit : bed
 
     script : 
     filter_intersect_commands = params.bedtools_filt_intersect ? "${params.bedtools_filt_intersect}" : ''

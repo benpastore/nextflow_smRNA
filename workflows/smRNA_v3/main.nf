@@ -679,12 +679,21 @@ workflow {
             bowtie_index_junction(params.junctions, params.index)
             bowtie_junction_align(bowtie_index_junction.out.junc_index_ch, bowtie_align.out.unaligned)
             combine_genome_junction_bed( bowtie_align.out.aligned.join(bowtie_junction_align.out.aligned ) )
-        }
+        
 
-        if ( params.filter_bed ) {
-            bed = filter_contaminant_bed( combine_genome_junction_bed.out.combined, params.filter_bed )
+            if ( params.filter_bed ) {
+                bed = filter_contaminant_bed( combine_genome_junction_bed.out.combined, params.filter_bed )
+            } else {
+                bed = bowtie_align.out.aligned
+            }
         } else {
-            bed = bowtie_align.out.aligned
+            
+            if ( params.filter_bed ) {
+                bed = filter_contaminant_bed( bowtie_align.out.aligned, params.filter_bed )
+            } else {
+                bed = bowtie_align.out.aligned
+            }
+        
         }
 
         process_bowtie_alignment(bed.join(fastas), bowtie_index.out.chrom_sizes)
